@@ -19,14 +19,62 @@ const autenticarToken = (req, res, next) => {
   });
 };
 
-// POST: /api/presupuestos - Crear o Actualizar Presupuesto (y su Categoría)
+// GET: /api/presupuestos - Listar presupuestos y consumo del mes actual
+router.get('/', autenticarToken, async (req, res) => {
+  try {
+    const userId = req.usuario.userId;
+    const relacionCuenta = await prisma.accountUser.findFirst({ where: { userId } });
+    if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+
+    const ahora = new Date();
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59, 999);
+    const presupuestos = await prisma.budget.findMany({
+      where: { accountId: relacionCuenta.accountId },
+      include: { category: true }
+    });
+
+    const presupuestosConConsumo = await Promise.all(presupuestos.map(async (item) => {
+      const agregado = await prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          accountId: relacionCuenta.accountId,
+          categoryId: item.categoryId,
+          type: 'GASTO',
+          date: { gte: inicioMes, lte: finMes }
+        }
+      });
+      const spentAmount = agregado._sum.amount || 0;
+      const percentage = item.limitAmount > 0 ? (spentAmount / item.limitAmount) * 100 : 0;
+
+      return {
+        id: item.id,
+        categoryId: item.categoryId,
+        categoria: item.category.name,
+        icono: item.category.icon,
+        limitAmount: item.limitAmount,
+        period: item.period,
+        spentAmount,
+        percentage,
+        estadoSemaforo: percentage >= 100 ? 'ROJO' : percentage >= 80 ? 'AMARILLO' : 'VERDE'
+      };
+    }));
+
+    res.json({ exito: true, presupuestos: presupuestosConConsumo });
+  } catch (error) {
+    console.error('Error al consultar presupuestos:', error);
+    res.status(500).json({ error: 'Error al consultar presupuestos en la base de datos.' });
+  }
+});
+
+// POST: /api/presupuestos - Crear o Actualizar Presupuesto para una categoría existente
 router.post('/', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { categoryName, categoryIcon, limitAmount, period } = req.body;
+    const { categoryId, limitAmount, period } = req.body;
 
-    if (!categoryName || !limitAmount) {
-      return res.status(400).json({ error: 'Categoría y monto límite son obligatorios.' });
+    if (!categoryId || !Number.isFinite(Number(limitAmount)) || Number(limitAmount) <= 0) {
+      return res.status(400).json({ error: 'Selecciona una categoría y proporciona un monto límite válido.' });
     }
 
     const relacionCuenta = await prisma.accountUser.findFirst({ where: { userId } });
@@ -34,37 +82,16 @@ router.post('/', autenticarToken, async (req, res) => {
 
     const accountId = relacionCuenta.accountId;
 
-    // Transacción Prisma: Actualiza/Crea Categoría y Asigna el Presupuesto
     const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Buscar o Crear/Actualizar la Categoría vinculada a la cuenta
-      let categoria = await tx.category.findFirst({
+      const categoria = await tx.category.findFirst({
         where: {
-          name: categoryName.trim(),
-          OR: [{ accountId: accountId }, { accountId: null }]
+          id: categoryId,
+          type: 'GASTO'
         }
       });
 
-      if (categoria) {
-        // Si existe, se actualiza el icono si fue proporcionado
-        if (categoryIcon && categoria.icon !== categoryIcon) {
-          categoria = await tx.category.update({
-            where: { id: categoria.id },
-            data: { icon: categoryIcon }
-          });
-        }
-      } else {
-        // Si no existe, se crea automáticamente la categoría
-        categoria = await tx.category.create({
-          data: {
-            name: categoryName.trim(),
-            icon: categoryIcon || '🏷️',
-            type: 'GASTO',
-            accountId: accountId
-          }
-        });
-      }
+      if (!categoria) return null;
 
-      // 2. Upsert del Presupuesto (Crear o Actualizar límite)
       const presupuestoExistente = await tx.budget.findFirst({
         where: { accountId, categoryId: categoria.id }
       });
@@ -74,14 +101,14 @@ router.post('/', autenticarToken, async (req, res) => {
         presupuesto = await tx.budget.update({
           where: { id: presupuestoExistente.id },
           data: {
-            limitAmount: parseFloat(limitAmount),
+            limitAmount: Number(limitAmount),
             period: period || 'MENSUAL'
           }
         });
       } else {
         presupuesto = await tx.budget.create({
           data: {
-            limitAmount: parseFloat(limitAmount),
+            limitAmount: Number(limitAmount),
             period: period || 'MENSUAL',
             accountId,
             categoryId: categoria.id
@@ -91,6 +118,10 @@ router.post('/', autenticarToken, async (req, res) => {
 
       return { presupuesto, categoria };
     });
+
+    if (!resultado) {
+      return res.status(400).json({ error: 'La categoría seleccionada no existe o no es una categoría de gasto disponible.' });
+    }
 
     res.status(201).json({ exito: true, ...resultado });
   } catch (error) {

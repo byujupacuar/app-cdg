@@ -1,0 +1,191 @@
+import React, { useEffect, useState } from 'react';
+import { obtenerCategorias, guardarMovimiento } from '../services/api';
+
+export default function Registro({ onGuardado, onNavigate }) {
+  const [tipo, setTipo] = useState('GASTO');
+  const [monto, setMonto] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [categorias, setCategorias] = useState([]);
+  const [categoriaSel, setCategoriaSel] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+
+  useEffect(() => {
+    let activo = true;
+    const cargarCategorias = async () => {
+      setCargando(true);
+      try {
+        const res = await obtenerCategorias();
+        if (activo) setCategorias(res.categorias || []);
+      } catch (err) {
+        if (activo) setError(err.response?.data?.error || 'No se pudieron cargar las categorías.');
+      } finally {
+        if (activo) setCargando(false);
+      }
+    };
+    cargarCategorias();
+    return () => { activo = false; };
+  }, []);
+
+  const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
+
+  useEffect(() => {
+    const categoriasTipo = categorias.filter((categoria) => categoria.type === tipo);
+    if (!categoriasTipo.some((categoria) => categoria.name === categoriaSel)) {
+      setCategoriaSel(categoriasTipo[0]?.name || '');
+    }
+  }, [tipo, categorias, categoriaSel]);
+
+  const handleGuardar = async (event) => {
+    event.preventDefault();
+    setError('');
+    setMensaje('');
+    if (!Number.isFinite(Number(monto)) || Number(monto) <= 0) {
+      setError('Ingresa un monto mayor a cero.');
+      return;
+    }
+    if (!categoriaSel) {
+      setError(`Crea primero una categoría de ${tipo === 'GASTO' ? 'gasto' : 'ingreso'}.`);
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      await guardarMovimiento({
+        amount: Number(monto),
+        type: tipo,
+        categoryName: categoriaSel,
+        description: descripcion.trim() || 'Sin detalle'
+      });
+      setMensaje('Movimiento registrado. Tu resumen ya está actualizado.');
+      setMonto('');
+      setDescripcion('');
+      onGuardado?.();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo guardar el movimiento. Inténtalo de nuevo.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="transactions-page">
+      <section className="categories-intro">
+        <div>
+          <span className="panel-kicker">REGISTRO FINANCIERO</span>
+          <h2>Registra un movimiento</h2>
+          <p>Agrega tus ingresos y gastos para tener una visión clara de tu dinero.</p>
+        </div>
+        <div className="movement-intro-icon">↕</div>
+      </section>
+
+      <div className="transaction-layout">
+        <section className="panel-card transaction-form-card">
+          <div className="panel-heading">
+            <div>
+              <span className="panel-kicker">NUEVO MOVIMIENTO</span>
+              <h2>Completa los detalles</h2>
+            </div>
+          </div>
+
+          {error && <div className="inline-error" role="alert">{error}</div>}
+          {mensaje && <div className="inline-success" role="status">{mensaje}</div>}
+
+          <div className="transaction-type-switch" aria-label="Tipo de movimiento">
+            <button
+              type="button"
+              className={tipo === 'GASTO' ? 'selected-expense' : ''}
+              onClick={() => { setTipo('GASTO'); setError(''); }}
+              aria-pressed={tipo === 'GASTO'}
+            >
+              <span>↘</span> Es un gasto
+            </button>
+            <button
+              type="button"
+              className={tipo === 'INGRESO' ? 'selected-income' : ''}
+              onClick={() => { setTipo('INGRESO'); setError(''); }}
+              aria-pressed={tipo === 'INGRESO'}
+            >
+              <span>↗</span> Es un ingreso
+            </button>
+          </div>
+
+          <form onSubmit={handleGuardar}>
+            <label htmlFor="movement-amount">¿Cuánto?</label>
+            <div className="amount-field">
+              <span>$</span>
+              <input
+                id="movement-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={monto}
+                onChange={(event) => setMonto(event.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-label-row">
+              <label>Categoría</label>
+              <button className="text-button" type="button" onClick={() => onNavigate('categorias')}>
+                Administrar <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            {cargando ? (
+              <div className="form-loading"><span className="loader" />Cargando categorías...</div>
+            ) : catsFiltradas.length ? (
+              <div className="transaction-category-grid">
+                {catsFiltradas.map((categoria) => (
+                  <button
+                    key={categoria.id}
+                    type="button"
+                    className={`transaction-category ${categoriaSel === categoria.name ? 'is-selected' : ''}`}
+                    onClick={() => setCategoriaSel(categoria.name)}
+                    aria-pressed={categoriaSel === categoria.name}
+                  >
+                    <span>{categoria.icon || '🏷️'}</span>
+                    <small>{categoria.name}</small>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="no-categories">
+                <span>◇</span>
+                <p>No hay categorías de {tipo === 'GASTO' ? 'gasto' : 'ingreso'} disponibles.</p>
+                <button className="text-button" type="button" onClick={() => onNavigate('categorias')}>
+                  Crear categoría <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            )}
+
+            <label htmlFor="movement-description">Detalle <span>(opcional)</span></label>
+            <input
+              id="movement-description"
+              className="form-text-input"
+              type="text"
+              placeholder="Ej. Supermercado, salario, transporte..."
+              maxLength={120}
+              value={descripcion}
+              onChange={(event) => setDescripcion(event.target.value)}
+            />
+
+            <button type="submit" className="button-primary form-submit" disabled={guardando || cargando}>
+              {guardando ? <><span className="button-spinner" /> Guardando...</> : <><span aria-hidden="true">＋</span> Guardar movimiento</>}
+            </button>
+          </form>
+        </section>
+
+        <aside className="transaction-tip">
+          <div className="tip-icon">✦</div>
+          <span className="panel-kicker">UN CONSEJO</span>
+          <h3>Pequeños registros, grandes decisiones.</h3>
+          <p>Agregar un detalle te ayuda a recordar en qué se fue el dinero cuando revises tu resumen.</p>
+          <div className="tip-decoration">Nivia</div>
+        </aside>
+      </div>
+    </div>
+  );
+}

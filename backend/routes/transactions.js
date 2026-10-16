@@ -21,7 +21,7 @@ const autenticarToken = (req, res, next) => {
 };
 
 // GET: Obtener métricas y balance real para el Dashboard
-router.get('/dashboard', autenticarToken, async (req, res) => {
+/*router.get('/dashboard', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
 
@@ -69,7 +69,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     res.status(500).json({ error: 'Error al consultar la base de datos.' });
   }
 });
-
+*/
 // POST: Crear movimiento real en PostgreSQL
 router.post('/', autenticarToken, async (req, res) => {
   try {
@@ -156,20 +156,44 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
 
     const accountId = relacionCuenta.accountId;
 
-    // 1. Rango del mes actual
     const ahora = new Date();
-    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-    const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59);
+    const { fechaInicio, fechaFin } = req.query;
+    const esFechaValida = (valor) => {
+      if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+      const fecha = new Date(`${valor}T00:00:00.000Z`);
+      return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+    };
 
-    // 2. Obtener sumatorias del mes
+    if ((fechaInicio && !esFechaValida(fechaInicio)) || (fechaFin && !esFechaValida(fechaFin))) {
+      return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD.' });
+    }
+
+    const inicioMes = fechaInicio
+      ? new Date(`${fechaInicio}T00:00:00.000Z`)
+      : new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const finMes = fechaFin
+      ? new Date(`${fechaFin}T23:59:59.999Z`)
+      : new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    if (inicioMes > finMes) {
+      return res.status(400).json({ error: 'La fecha inicial no puede ser posterior a la fecha final.' });
+    }
+
+    const rangoFechas = { gte: inicioMes, lte: finMes };
+
+    // 2. Obtener sumatorias y cantidad de movimientos del rango
     const ingresosAgregados = await prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { accountId, type: 'INGRESO', date: { gte: inicioMes, lte: finMes } }
+      where: { accountId, type: 'INGRESO', date: rangoFechas }
     });
 
     const gastosAgregados = await prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { accountId, type: 'GASTO', date: { gte: inicioMes, lte: finMes } }
+      where: { accountId, type: 'GASTO', date: rangoFechas }
+    });
+
+    const totalMovimientos = await prisma.transaction.count({
+      where: { accountId, date: rangoFechas }
     });
 
     const totalIngresos = ingresosAgregados._sum.amount || 0;
@@ -180,7 +204,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     const gastosPorCategoriaGroup = await prisma.transaction.groupBy({
       by: ['categoryId'],
       _sum: { amount: true },
-      where: { accountId, type: 'GASTO', date: { gte: inicioMes, lte: finMes } },
+      where: { accountId, type: 'GASTO', date: rangoFechas },
       orderBy: { _sum: { amount: 'desc' } }
     });
 
@@ -201,12 +225,12 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
       })
     );
 
-    // 4. Últimos 5 movimientos
+    // 4. Movimientos más recientes dentro del rango consultado
     const ultimosMovimientos = await prisma.transaction.findMany({
-      where: { accountId },
+      where: { accountId, date: rangoFechas },
       include: { category: true },
       orderBy: { date: 'desc' },
-      take: 5
+      take: 10
     });
 
     res.json({
@@ -216,7 +240,12 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
       resumen: {
         totalIngresos,
         totalGastos,
-        balanceTotal
+        balanceTotal,
+        totalMovimientos
+      },
+      periodo: {
+        fechaInicio: fechaInicio || new Date(inicioMes.getTime() - inicioMes.getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+        fechaFin: fechaFin || new Date(finMes.getTime() - finMes.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
       },
       gastosPorCategoria: categoriasConDetalle,
       ultimosMovimientos

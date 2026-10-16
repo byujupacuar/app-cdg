@@ -1,0 +1,29 @@
+{
+  "short_name": "Nivia",
+  "name": "Nivia — Finanzas Personales y de Pareja",
+  "description": "Gestión financiera offline-first multiplataforma para cuentas individuales y compartidas.",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2ecc71",
+  "background_color": "#f5f6fa"
+}

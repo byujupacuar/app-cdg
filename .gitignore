@@ -1,0 +1,16 @@
+# Dependencies and generated output
+**/node_modules/
+**/build/
+**/dist/
+**/coverage/
+**/.expo/
+**/generated/prisma/
+
+# Local environment and credentials
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local operating-system and tool files
+**/.DS_Store
+**/*.tsbuildinfo
