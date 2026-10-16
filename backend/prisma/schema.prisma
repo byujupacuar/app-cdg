@@ -1,0 +1,113 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AccountType {
+  INDIVIDUAL
+  SHARED
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+enum TransactionType {
+  INGRESO
+  GASTO
+  PRESTAMO
+}
+
+enum LoanType {
+  OTORGADO // Te deben
+  RECIBIDO // Debes
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String?       // Opcional para logins vía Google OAuth
+  googleId     String?       @unique
+  accounts     AccountUser[]
+  transactions Transaction[]
+  loans        Loan[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Account {
+  id           String        @id @default(uuid())
+  name         String
+  type         AccountType   @default(INDIVIDUAL)
+  users        AccountUser[]
+  transactions Transaction[]
+  budgets      Budget[]
+  loans        Loan[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model AccountUser {
+  id        String   @id @default(uuid())
+  userId    String
+  accountId String
+  role      Role     @default(OWNER)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountId])
+}
+
+model Category {
+  id           String          @id @default(uuid())
+  name         String
+  icon         String          @default("🏷️")
+  type         TransactionType
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  amount      Float
+  type        TransactionType
+  description String?
+  date        DateTime        @default(now())
+  accountId   String
+  userId      String
+  categoryId  String
+  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id])
+  category    Category        @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime        @default(now())
+}
+
+model Budget {
+  id          String   @id @default(uuid())
+  limitAmount Float
+  period      String   // "MENSUAL", "QUINCENAL"
+  accountId   String
+  categoryId  String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id])
+}
+
+model Loan {
+  id          String    @id @default(uuid())
+  contactName String
+  totalAmount Float
+  dueAmount   Float
+  type        LoanType
+  dueDate     DateTime?
+  accountId   String
+  userId      String
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+  createdAt   DateTime  @default(now())
+}
