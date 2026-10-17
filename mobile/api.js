@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Dirección IP local del backend en Express
-const API_URL = 'http://192.168.28.102:3000';
+const API_URL = 'https://app-cdg.onrender.com';
 
 export const verificarConexion = async () => {
   try {
