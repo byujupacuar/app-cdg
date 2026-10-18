@@ -53,6 +53,21 @@ export const guardarMovimiento = async (datos) => {
   return res.data;
 };
 
+export const obtenerMovimientos = async () => {
+  const res = await api.get('/api/movimientos');
+  return res.data;
+};
+
+export const actualizarMovimiento = async (id, datos) => {
+  const res = await api.put(`/api/movimientos/${id}`, datos);
+  return res.data;
+};
+
+export const eliminarMovimiento = async (id) => {
+  const res = await api.delete(`/api/movimientos/${id}`);
+  return res.data;
+};
+
 export const obtenerPresupuestos = async () => {
   const res = await api.get('/api/presupuestos');
   return res.data;
