@@ -140,6 +140,112 @@ router.post('/', autenticarToken, async (req, res) => {
   }
 });
 
+router.get('/', autenticarToken, async (req, res) => {
+  try {
+    const userId = req.usuario.userId;
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId }
+    });
+
+    if (!relacionCuenta) {
+      return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
+    }
+
+    const movimientos = await prisma.transaction.findMany({
+      where: { accountId: relacionCuenta.accountId },
+      include: { category: true },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+    });
+
+    res.json({ exito: true, movimientos });
+  } catch (error) {
+    console.error('Error al consultar movimientos:', error);
+    res.status(500).json({ error: 'Error interno al consultar los movimientos.' });
+  }
+});
+
+router.put('/:id', autenticarToken, async (req, res) => {
+  try {
+    const userId = req.usuario.userId;
+    const { amount, type, description, categoryName } = req.body;
+    const monto = (typeof amount === 'number' || (typeof amount === 'string' && amount.trim()))
+      ? Number(amount)
+      : Number.NaN;
+    const tipoEnum = typeof type === 'string' ? type.toUpperCase() : '';
+    const nombreCategoria = typeof categoryName === 'string' ? categoryName.trim() : '';
+
+    if (!Number.isFinite(monto) || monto <= 0 || !['INGRESO', 'GASTO'].includes(tipoEnum) || !nombreCategoria) {
+      return res.status(400).json({ error: 'Monto, tipo y categoría válidos son obligatorios.' });
+    }
+
+    if (description !== undefined && typeof description !== 'string') {
+      return res.status(400).json({ error: 'La descripción debe ser texto.' });
+    }
+
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId }
+    });
+
+    if (!relacionCuenta) {
+      return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
+    }
+
+    const categoria = await prisma.category.findFirst({
+      where: { name: nombreCategoria, type: tipoEnum }
+    });
+
+    if (!categoria) {
+      return res.status(400).json({ error: 'No se encontró una categoría válida para este tipo de movimiento.' });
+    }
+
+    const movimiento = await prisma.transaction.update({
+      where: { id: req.params.id, accountId: relacionCuenta.accountId },
+      data: {
+        amount: monto,
+        type: tipoEnum,
+        description: description?.trim() || 'Sin detalle',
+        categoryId: categoria.id
+      },
+      include: { category: true }
+    });
+
+    res.json({ exito: true, movimiento });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'No se encontró el movimiento solicitado.' });
+    }
+
+    console.error('Error al actualizar movimiento:', error);
+    res.status(500).json({ error: 'Error interno al actualizar el movimiento.' });
+  }
+});
+
+router.delete('/:id', autenticarToken, async (req, res) => {
+  try {
+    const userId = req.usuario.userId;
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId }
+    });
+
+    if (!relacionCuenta) {
+      return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
+    }
+
+    const resultado = await prisma.transaction.deleteMany({
+      where: { id: req.params.id, accountId: relacionCuenta.accountId }
+    });
+
+    if (resultado.count === 0) {
+      return res.status(404).json({ error: 'No se encontró el movimiento solicitado.' });
+    }
+
+    res.json({ exito: true, mensaje: 'Movimiento eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar movimiento:', error);
+    res.status(500).json({ error: 'Error interno al eliminar el movimiento.' });
+  }
+});
+
 // GET: /api/movimientos/dashboard - Métricas, saldo y gastos por categoría
 router.get('/dashboard', autenticarToken, async (req, res) => {
   try {

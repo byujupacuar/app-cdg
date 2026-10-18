@@ -89,6 +89,45 @@ export const guardarMovimientoReal = async (datosMovimiento, token) => {
   }
 };
 
+export const obtenerMovimientosReal = async (token) => {
+  try {
+    const respuesta = await axios.get(`${API_URL}/api/movimientos`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { exito: true, movimientos: respuesta.data.movimientos };
+  } catch (error) {
+    console.error("Error al consultar movimientos:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar los movimientos." };
+  }
+};
+
+export const actualizarMovimientoReal = async (id, datosMovimiento, token) => {
+  try {
+    const respuesta = await axios.put(`${API_URL}/api/movimientos/${id}`, datosMovimiento, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, movimiento: respuesta.data.movimiento };
+  } catch (error) {
+    console.error("Error al actualizar movimiento:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo actualizar el movimiento." };
+  }
+};
+
+export const eliminarMovimientoReal = async (id, token) => {
+  try {
+    const respuesta = await axios.delete(`${API_URL}/api/movimientos/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { exito: true, mensaje: respuesta.data.mensaje };
+  } catch (error) {
+    console.error("Error al eliminar movimiento:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo eliminar el movimiento." };
+  }
+};
+
 export const obtenerDashboardReal = async (token) => {
   try {
     const respuesta = await axios.get(`${API_URL}/api/movimientos/dashboard`, {
