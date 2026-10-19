@@ -17,10 +17,10 @@ FROM "Account";
 
 ALTER TABLE "Transaction" ADD COLUMN "financialAccountId" TEXT;
 
-UPDATE "Transaction" AS transaction
+UPDATE "Transaction" AS t
 SET "financialAccountId" = financial_account."id"
 FROM "FinancialAccount" AS financial_account
-WHERE financial_account."householdAccountId" = transaction."accountId";
+WHERE financial_account."householdAccountId" = t."accountId";
 
 ALTER TABLE "Transaction" ALTER COLUMN "financialAccountId" SET NOT NULL;
 

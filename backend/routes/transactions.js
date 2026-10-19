@@ -80,6 +80,10 @@ router.post('/', autenticarToken, async (req, res) => {
       return res.status(400).json({ error: 'Monto y categoría son obligatorios.' });
     }
 
+    if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
+      return res.status(400).json({ error: 'La cuenta financiera seleccionada no es válida.' });
+    }
+
     // 1. Obtener la cuenta vinculada al usuario
     const relacionCuenta = await prisma.accountUser.findFirst({ 
       where: { userId },
@@ -192,6 +196,10 @@ router.put('/:id', autenticarToken, async (req, res) => {
 
     if (description !== undefined && typeof description !== 'string') {
       return res.status(400).json({ error: 'La descripción debe ser texto.' });
+    }
+
+    if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
+      return res.status(400).json({ error: 'La cuenta financiera seleccionada no es válida.' });
     }
 
     const relacionCuenta = await prisma.accountUser.findFirst({

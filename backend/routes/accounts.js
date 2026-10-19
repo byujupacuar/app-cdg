@@ -123,6 +123,16 @@ router.delete('/financieras/:id', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
     }
 
+    const totalCuentas = await prisma.financialAccount.count({
+      where: { householdAccountId: relacion.accountId }
+    });
+
+    if (totalCuentas <= 1) {
+      return res.status(409).json({
+        error: 'Debes conservar al menos una cuenta. Crea otra antes de eliminar esta.'
+      });
+    }
+
     const cuenta = await prisma.financialAccount.findFirst({
       where: { id: req.params.id, householdAccountId: relacion.accountId },
       include: { _count: { select: { transactions: true } } }
