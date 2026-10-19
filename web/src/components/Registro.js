@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   obtenerCategorias,
+  obtenerCuentasFinancieras,
   guardarMovimiento,
   obtenerMovimientos,
   actualizarMovimiento,
@@ -12,6 +13,8 @@ export default function Registro({ onGuardado, onNavigate }) {
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categorias, setCategorias] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
+  const [cuentaFinancieraId, setCuentaFinancieraId] = useState('');
   const [categoriaSel, setCategoriaSel] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -48,10 +51,31 @@ export default function Registro({ onGuardado, onNavigate }) {
         if (activo) setCargando(false);
       }
     };
+    const cargarCuentas = async () => {
+      try {
+        const res = await obtenerCuentasFinancieras();
+        if (activo) {
+          const listaCuentas = res.cuentas || [];
+          setCuentas(listaCuentas);
+          setCuentaFinancieraId((actual) =>
+            listaCuentas.some((cuenta) => cuenta.id === actual) ? actual : listaCuentas[0]?.id || ''
+          );
+        }
+      } catch (err) {
+        if (activo) setError(err.response?.data?.error || 'No se pudieron cargar las cuentas.');
+      }
+    };
     cargarCategorias();
+    cargarCuentas();
     cargarMovimientos(() => activo);
     return () => { activo = false; };
   }, []);
+
+  useEffect(() => {
+    if (!cuentas.some((cuenta) => cuenta.id === cuentaFinancieraId)) {
+      setCuentaFinancieraId(cuentas[0]?.id || '');
+    }
+  }, [cuentas, cuentaFinancieraId]);
 
   const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
 
@@ -74,6 +98,10 @@ export default function Registro({ onGuardado, onNavigate }) {
       setError(`Crea primero una categoría de ${tipo === 'GASTO' ? 'gasto' : 'ingreso'}.`);
       return;
     }
+    if (!cuentaFinancieraId) {
+      setError('Crea primero una cuenta para registrar el movimiento.');
+      return;
+    }
 
     setGuardando(true);
     try {
@@ -81,6 +109,7 @@ export default function Registro({ onGuardado, onNavigate }) {
         amount: Number(monto),
         type: tipo,
         categoryName: categoriaSel,
+        financialAccountId: cuentaFinancieraId,
         description: descripcion.trim() || 'Sin detalle'
       };
       if (editandoId) {
@@ -111,6 +140,7 @@ export default function Registro({ onGuardado, onNavigate }) {
     setMonto(String(movimiento.amount));
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
     setCategoriaSel(movimiento.category?.name || '');
+    setCuentaFinancieraId(movimiento.financialAccountId || movimiento.financialAccount?.id || '');
     setError('');
     setMensaje('');
     document.getElementById('movement-amount')?.focus();
@@ -195,6 +225,35 @@ export default function Registro({ onGuardado, onNavigate }) {
                 required
               />
             </div>
+
+            <div className="form-label-row">
+              <label htmlFor="movement-account">Cuenta</label>
+              <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
+                Administrar <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            {cuentas.length ? (
+              <select
+                id="movement-account"
+                className="form-text-input movement-account-select"
+                value={cuentaFinancieraId}
+                onChange={(event) => setCuentaFinancieraId(event.target.value)}
+                required
+              >
+                {cuentas.map((cuenta) => (
+                  <option key={cuenta.id} value={cuenta.id}>
+                    {cuenta.name} · {cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Banco' : 'Tarjeta'}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="no-categories">
+                <p>No tienes cuentas financieras disponibles.</p>
+                <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
+                  Crear cuenta <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            )}
 
             <div className="form-label-row">
               <label>Categoría</label>
@@ -283,6 +342,7 @@ export default function Registro({ onGuardado, onNavigate }) {
                 <div className="transaction-history-details">
                   <strong>{movimiento.category?.name || 'General'}</strong>
                   <span>{movimiento.description || 'Sin detalle'}</span>
+                  <small>{movimiento.financialAccount?.name || 'Sin cuenta'}</small>
                   <small>{movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}</small>
                 </div>
                 <div className="transaction-history-actions">

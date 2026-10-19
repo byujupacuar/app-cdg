@@ -499,6 +499,34 @@ button { color: inherit; }
 .loan-payment-row { align-items: center; color: var(--muted); display: flex; font-size: 10px; justify-content: space-between; }
 .loan-payment-row strong { color: var(--ink); font-size: 10px; }
 .loan-payment-history .loan-prior-payments { color: #96702d; }
+
+.financial-accounts-layout { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(250px, .8fr) minmax(0, 1.2fr); }
+.financial-account-form form { display: flex; flex-direction: column; }
+.financial-account-form label { color: #5f6d64; font-size: 11px; font-weight: 700; margin: 0 0 7px; }
+.financial-account-form input, .financial-account-form select, .movement-account-select {
+  background: #fbfcfb;
+  border: 1px solid #e6ebe7;
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 12px;
+  margin-bottom: 17px;
+  min-height: 42px;
+  outline: none;
+  padding: 10px 12px;
+  width: 100%;
+}
+.financial-account-form input:focus, .financial-account-form select:focus, .movement-account-select:focus { border-color: #8ab59a; box-shadow: 0 0 0 3px rgba(69,139,94,.1); }
+.account-cancel-button { margin-top: 9px; }
+.financial-account-items { display: grid; }
+.financial-account-item { align-items: center; border-bottom: 1px solid #f0f2f0; display: flex; gap: 11px; padding: 13px 0; }
+.financial-account-item:first-child { padding-top: 0; }
+.financial-account-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.financial-account-icon { align-items: center; background: var(--green-50); border-radius: 10px; color: var(--green-800); display: inline-flex; flex: 0 0 38px; font-size: 17px; height: 38px; justify-content: center; }
+.financial-account-details { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.financial-account-details strong { color: var(--ink); font-size: 12px; }
+.financial-account-details small { color: var(--muted); font-size: 10px; }
+.financial-account-actions { align-items: center; display: flex; gap: 9px; }
+.movement-account-select { margin-top: 8px; }
 .loan-form-panel .loan-type-switch { margin: 0 0 17px; }
 .loan-form-panel .form-intro { margin-bottom: 17px; }
 .dialog-backdrop { align-items: center; background: rgba(21,63,50,.4); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 20; }
@@ -576,6 +604,7 @@ button { color: inherit; }
   .analysis-content-grid { grid-template-columns: 1fr; }
   .category-counts { align-self: flex-end; margin-top: -4px; }
   .categories-layout, .transaction-layout { grid-template-columns: 1fr; }
+  .financial-accounts-layout { grid-template-columns: 1fr; }
   .budgets-layout, .loans-layout { grid-template-columns: 1fr; }
   .loan-form-panel { grid-row: 1; }
   .budget-form-panel { grid-row: 1; }

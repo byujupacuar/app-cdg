@@ -6,6 +6,7 @@ import Categorias from './components/Categorias';
 import Presupuestos from './components/Presupuestos';
 import Prestamos from './components/Prestamos';
 import Analisis from './components/Analisis';
+import Cuentas from './components/Cuentas';
 import './App.css';
 
 const navigation = [
@@ -14,7 +15,8 @@ const navigation = [
   { id: 'movimientos', icon: '↕', label: 'Movimientos' },
   { id: 'categorias', icon: '◇', label: 'Categorías' },
   { id: 'presupuestos', icon: '◉', label: 'Presupuestos' },
-  { id: 'prestamos', icon: '↗', label: 'Préstamos' }
+  { id: 'prestamos', icon: '↗', label: 'Préstamos' },
+  { id: 'cuentas', icon: '▣', label: 'Cuentas' }
 ];
 
 function App() {
@@ -103,6 +105,9 @@ function App() {
           )}
           {seccion === 'prestamos' && (
             <Prestamos />
+          )}
+          {seccion === 'cuentas' && (
+            <Cuentas />
           )}
         </div>
       </main>

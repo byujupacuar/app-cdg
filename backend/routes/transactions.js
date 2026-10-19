@@ -74,7 +74,7 @@ const autenticarToken = (req, res, next) => {
 router.post('/', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { amount, type, description, categoryName } = req.body;
+    const { amount, type, description, categoryName, financialAccountId } = req.body;
 
     if (!amount || !categoryName) {
       return res.status(400).json({ error: 'Monto y categoría son obligatorios.' });
@@ -88,6 +88,19 @@ router.post('/', autenticarToken, async (req, res) => {
 
     if (!relacionCuenta) {
       return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
+    }
+
+    const cuentaFinanciera = financialAccountId
+      ? await prisma.financialAccount.findFirst({
+        where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
+      })
+      : await prisma.financialAccount.findFirst({
+        where: { householdAccountId: relacionCuenta.accountId },
+        orderBy: { createdAt: 'asc' }
+      });
+
+    if (!cuentaFinanciera) {
+      return res.status(400).json({ error: 'Selecciona una cuenta financiera válida.' });
     }
 
     // 2. Normalizar el tipo de transacción para el Enum de Prisma
@@ -115,12 +128,11 @@ router.post('/', autenticarToken, async (req, res) => {
         type: tipoEnum,
         description: description || 'Sin detalle',
         accountId: relacionCuenta.accountId,
+        financialAccountId: cuentaFinanciera.id,
         userId: userId,
         categoryId: categoria.id
       },
-      include: {
-        category: true
-      }
+      include: { category: true, financialAccount: true }
     });
 
     console.log("✅ Movimiento guardado exitosamente en Neon.tech:", nuevaTransaccion.id);
@@ -153,7 +165,7 @@ router.get('/', autenticarToken, async (req, res) => {
 
     const movimientos = await prisma.transaction.findMany({
       where: { accountId: relacionCuenta.accountId },
-      include: { category: true },
+      include: { category: true, financialAccount: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
     });
 
@@ -167,7 +179,7 @@ router.get('/', autenticarToken, async (req, res) => {
 router.put('/:id', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { amount, type, description, categoryName } = req.body;
+    const { amount, type, description, categoryName, financialAccountId } = req.body;
     const monto = (typeof amount === 'number' || (typeof amount === 'string' && amount.trim()))
       ? Number(amount)
       : Number.NaN;
@@ -190,6 +202,16 @@ router.put('/:id', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
     }
 
+    const cuentaFinanciera = financialAccountId
+      ? await prisma.financialAccount.findFirst({
+        where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
+      })
+      : null;
+
+    if (financialAccountId && !cuentaFinanciera) {
+      return res.status(400).json({ error: 'Selecciona una cuenta financiera válida.' });
+    }
+
     const categoria = await prisma.category.findFirst({
       where: { name: nombreCategoria, type: tipoEnum }
     });
@@ -204,9 +226,10 @@ router.put('/:id', autenticarToken, async (req, res) => {
         amount: monto,
         type: tipoEnum,
         description: description?.trim() || 'Sin detalle',
-        categoryId: categoria.id
+        categoryId: categoria.id,
+        ...(cuentaFinanciera && { financialAccountId: cuentaFinanciera.id })
       },
-      include: { category: true }
+      include: { category: true, financialAccount: true }
     });
 
     res.json({ exito: true, movimiento });
@@ -334,7 +357,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     // 4. Movimientos más recientes dentro del rango consultado
     const ultimosMovimientos = await prisma.transaction.findMany({
       where: { accountId, date: rangoFechas },
-      include: { category: true },
+      include: { category: true, financialAccount: true },
       orderBy: { date: 'desc' },
       take: 10
     });

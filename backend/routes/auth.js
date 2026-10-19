@@ -79,6 +79,10 @@ router.post('/google', async (req, res) => {
           }
         });
 
+        await tx.financialAccount.create({
+          data: { name: 'Efectivo', type: 'EFECTIVO', householdAccountId: account.id }
+        });
+
         return nuevoUser;
       });
     } else if (!usuario.googleId) {
@@ -139,6 +143,10 @@ router.post('/register', async (req, res) => {
 
       await tx.accountUser.create({
         data: { userId: user.id, accountId: account.id, role: 'OWNER' },
+      });
+
+      await tx.financialAccount.create({
+        data: { name: 'Efectivo', type: 'EFECTIVO', householdAccountId: account.id },
       });
 
       return user;

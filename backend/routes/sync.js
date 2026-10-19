@@ -88,6 +88,15 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
   const fechaCliente = new Date(clientTimestamp || Date.now());
 
   if (action === 'CREATE') {
+    const cuentaFinanciera = await prisma.financialAccount.findFirst({
+      where: { householdAccountId: accountId },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (!cuentaFinanciera) {
+      throw new Error('No se encontró una cuenta financiera para el movimiento sincronizado.');
+    }
+
     // Buscar o crear la categoría correspondiente
     let categoria = await prisma.category.findFirst({
       where: { name: categoryName || 'General' }
@@ -107,6 +116,7 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
         description: description || 'Registrado offline',
         date: date ? new Date(date) : new Date(),
         accountId,
+        financialAccountId: cuentaFinanciera.id,
         userId,
         categoryId: categoria.id,
         createdAt: fechaCliente,

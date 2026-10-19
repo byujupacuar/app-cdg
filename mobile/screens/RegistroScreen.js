@@ -6,6 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import {
   obtenerCategorias,
+  obtenerCuentasFinancieras,
   guardarMovimientoReal,
   obtenerMovimientosReal,
   actualizarMovimientoReal,
@@ -13,7 +14,7 @@ import {
 } from '../api';
 import { colors } from '../theme';
 
-export default function RegistroScreen({ token }) {
+export default function RegistroScreen({ token, navigation }) {
   const scrollRef = useRef(null);
   const [tipo, setTipo] = useState('GASTO'); // 'GASTO' | 'INGRESO'
   const [monto, setMonto] = useState('');
@@ -21,6 +22,8 @@ export default function RegistroScreen({ token }) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   
   const [categorias, setCategorias] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
+  const [cuentaFinancieraId, setCuentaFinancieraId] = useState(null);
   const [loadingCats, setLoadingCats] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
   const [loadingMovimientos, setLoadingMovimientos] = useState(true);
@@ -66,7 +69,23 @@ export default function RegistroScreen({ token }) {
         setLoadingCats(false);
       };
 
+      const cargarCuentas = async () => {
+        const res = await obtenerCuentasFinancieras(token);
+        if (!activa) return;
+        if (res.exito) {
+          setCuentas(res.cuentas);
+          setCuentaFinancieraId(actual =>
+            res.cuentas.some(cuenta => cuenta.id === actual)
+              ? actual
+              : res.cuentas[0]?.id || null
+          );
+        } else {
+          Alert.alert("Error", res.mensaje || "No se pudieron cargar las cuentas.");
+        }
+      };
+
       cargarCategorias();
+      cargarCuentas();
       cargarMovimientos(() => activa);
       return () => {
         activa = false;
@@ -86,6 +105,7 @@ export default function RegistroScreen({ token }) {
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
     setTipo(movimiento.type);
     setCategoriaSeleccionada(movimiento.category?.name || null);
+    setCuentaFinancieraId(movimiento.financialAccountId || movimiento.financialAccount?.id || null);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
@@ -99,6 +119,10 @@ export default function RegistroScreen({ token }) {
       Alert.alert("Selecciona categoría", "Debes elegir o crear una categoría primero.");
       return;
     }
+    if (!cuentaFinancieraId) {
+      Alert.alert("Selecciona una cuenta", "Crea o selecciona una cuenta antes de registrar el movimiento.");
+      return;
+    }
 
     setGuardando(true);
 
@@ -106,6 +130,7 @@ export default function RegistroScreen({ token }) {
       amount: parseFloat(monto),
       type: tipo,
       categoryName: categoriaSeleccionada,
+      financialAccountId: cuentaFinancieraId,
       description: descripcion || 'Sin detalle'
     };
     const res = editandoId
@@ -197,6 +222,39 @@ export default function RegistroScreen({ token }) {
         onChangeText={setMonto} 
       />
 
+      <View style={styles.etiquetaCuenta}>
+        <Text style={styles.label}>Cuenta</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
+          <Text style={styles.linkCuenta}>Administrar</Text>
+        </TouchableOpacity>
+      </View>
+      {cuentas.length === 0 ? (
+        <TouchableOpacity style={styles.vacioBox} onPress={() => navigation.navigate('Cuentas')}>
+          <Text style={styles.vacioTxt}>No hay cuentas disponibles. Toca aquí para crear una.</Text>
+        </TouchableOpacity>
+      ) : (
+        <ScrollView
+          horizontal
+          style={styles.categoriasScroll}
+          contentContainerStyle={styles.categoriasRow}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {cuentas.map(cuenta => (
+            <TouchableOpacity
+              key={cuenta.id}
+              style={[styles.catCard, cuentaFinancieraId === cuenta.id && styles.catCardSeleccionada]}
+              onPress={() => setCuentaFinancieraId(cuenta.id)}
+            >
+              <Text style={styles.catIcon}>
+                {cuenta.type === 'EFECTIVO' ? '◉' : cuenta.type === 'BANCO' ? '▤' : '▣'}
+              </Text>
+              <Text style={[styles.catName, cuentaFinancieraId === cuenta.id && styles.txtBlanco]}>{cuenta.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* Selector de Categorías Dinámicas */}
       <Text style={styles.label}>Categoría</Text>
       {loadingCats ? (
@@ -276,7 +334,7 @@ export default function RegistroScreen({ token }) {
                   {movimiento.description || 'Sin detalle'}
                 </Text>
                 <Text style={styles.movimientoFecha}>
-                  {movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}
+                  {movimiento.financialAccount?.name || 'Sin cuenta'} · {movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}
                 </Text>
               </View>
               <View style={styles.movimientoAcciones}>
@@ -330,6 +388,8 @@ const styles = StyleSheet.create({
   txtActivo: { color: colors.green800 },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 7, marginTop: 10 },
   labelOptional: { color: '#9aa69f', fontWeight: '400' },
+  etiquetaCuenta: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  linkCuenta: { color: colors.green800, fontSize: 11, fontWeight: '700', marginBottom: 7 },
   inputMonto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 23, fontWeight: '700', color: colors.green950 },
   categoriasScroll: { flexGrow: 0, marginVertical: 3 },
   categoriasRow: { paddingVertical: 4 },

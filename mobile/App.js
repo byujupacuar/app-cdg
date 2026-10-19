@@ -13,6 +13,7 @@ import PresupuestosScreen from './screens/PresupuestosScreen';
 import PrestamosScreen from './screens/PrestamosScreen';
 import ParejaScreen from './screens/ParejaScreen';
 import CategoriasScreen from './screens/CategoriasScreen';
+import CuentasScreen from './screens/CuentasScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -47,6 +48,7 @@ export default function App() {
               Resumen: '◫',
               Movimientos: '↕',
               Categorías: '◇',
+              Cuentas: '▣',
               Presupuestos: '◉',
               Préstamos: '↗',
               Cuenta: '○'
@@ -95,6 +97,10 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen name="Categorías">
           {(props) => <CategoriasScreen {...props} token={token} />}
+        </Tab.Screen>
+
+        <Tab.Screen name="Cuentas">
+          {(props) => <CuentasScreen {...props} token={token} />}
         </Tab.Screen>
 
         <Tab.Screen name="Presupuestos">

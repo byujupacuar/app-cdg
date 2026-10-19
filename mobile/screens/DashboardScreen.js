@@ -197,6 +197,7 @@ export default function DashboardScreen({ token, onLogout }) {
               <View style={styles.movDetalle}>
                 <Text style={styles.movCat}>{m.category?.name || 'General'}</Text>
                 <Text style={styles.movDesc}>{m.description || 'Sin detalle'}</Text>
+                <Text style={styles.movDesc}>{m.financialAccount?.name || 'Sin cuenta'}</Text>
               </View>
               <Text style={[styles.movMonto, { color: m.type === 'INGRESO' ? colors.green700 : colors.red }]}>
                 {m.type === 'INGRESO' ? '+' : '-'}${(m.amount ?? 0).toFixed(2)}

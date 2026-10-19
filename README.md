@@ -18,11 +18,13 @@ Configura `DATABASE_URL` y un `JWT_SECRET` propio en `backend/.env`. Después:
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate dev
 npm run dev
 ```
 
 La API queda disponible por defecto en `http://localhost:3000`.
+En producción, aplica las migraciones pendientes con `npx prisma migrate deploy`
+antes de iniciar la API.
 
 ## Web
 

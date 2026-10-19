@@ -23,6 +23,12 @@ enum TransactionType {
   PRESTAMO
 }
 
+enum FinancialAccountType {
+  EFECTIVO
+  BANCO
+  TARJETA
+}
+
 enum LoanType {
   OTORGADO // Te deben
   RECIBIDO // Debes
@@ -32,7 +38,7 @@ model User {
   id           String        @id @default(uuid())
   name         String
   email        String        @unique
-  password     String?       // Opcional para logins vía Google OAuth
+  password     String? // Opcional para logins vía Google OAuth
   googleId     String?       @unique
   accounts     AccountUser[]
   transactions Transaction[]
@@ -42,24 +48,38 @@ model User {
 }
 
 model Account {
-  id           String        @id @default(uuid())
-  name         String
-  type         AccountType   @default(INDIVIDUAL)
-  users        AccountUser[]
-  transactions Transaction[]
-  budgets      Budget[]
-  loans        Loan[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                String             @id @default(uuid())
+  name              String
+  type              AccountType        @default(INDIVIDUAL)
+  users             AccountUser[]
+  transactions      Transaction[]
+  financialAccounts FinancialAccount[]
+  budgets           Budget[]
+  loans             Loan[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model FinancialAccount {
+  id                 String               @id @default(uuid())
+  name               String
+  type               FinancialAccountType @default(EFECTIVO)
+  householdAccountId String
+  householdAccount   Account              @relation(fields: [householdAccountId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([householdAccountId, name])
 }
 
 model AccountUser {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   userId    String
   accountId String
-  role      Role     @default(OWNER)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  role      Role    @default(OWNER)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([userId, accountId])
 }
@@ -74,24 +94,26 @@ model Category {
 }
 
 model Transaction {
-  id          String          @id @default(uuid())
-  amount      Float
-  type        TransactionType
-  description String?
-  date        DateTime        @default(now())
-  accountId   String
-  userId      String
-  categoryId  String
-  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user        User            @relation(fields: [userId], references: [id])
-  category    Category        @relation(fields: [categoryId], references: [id])
-  createdAt   DateTime        @default(now())
+  id                 String           @id @default(uuid())
+  amount             Float
+  type               TransactionType
+  description        String?
+  date               DateTime         @default(now())
+  accountId          String
+  financialAccountId String
+  userId             String
+  categoryId         String
+  account            Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  financialAccount   FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  user               User             @relation(fields: [userId], references: [id])
+  category           Category         @relation(fields: [categoryId], references: [id])
+  createdAt          DateTime         @default(now())
 }
 
 model Budget {
   id          String   @id @default(uuid())
   limitAmount Float
-  period      String   // "MENSUAL", "QUINCENAL"
+  period      String // "MENSUAL", "QUINCENAL"
   accountId   String
   categoryId  String
   account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)

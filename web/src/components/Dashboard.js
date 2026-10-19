@@ -160,6 +160,7 @@ export default function Dashboard({ refreshKey, onNavigate }) {
                     <span className="recent-description">
                       <strong>{movimiento.category?.name || 'General'}</strong>
                       <small>{movimiento.description || 'Sin detalle'}</small>
+                      <small>{movimiento.financialAccount?.name || 'Sin cuenta'}</small>
                     </span>
                     <strong className={gasto ? 'amount-negative' : 'amount-positive'}>
                       {gasto ? '−' : '+'}{currency(movimiento.amount)}

@@ -33,6 +33,26 @@ export const obtenerCategorias = async () => {
   return res.data;
 };
 
+export const obtenerCuentasFinancieras = async () => {
+  const res = await api.get('/api/cuentas/financieras');
+  return res.data;
+};
+
+export const crearCuentaFinanciera = async (datos) => {
+  const res = await api.post('/api/cuentas/financieras', datos);
+  return res.data;
+};
+
+export const actualizarCuentaFinanciera = async (id, datos) => {
+  const res = await api.put(`/api/cuentas/financieras/${id}`, datos);
+  return res.data;
+};
+
+export const eliminarCuentaFinanciera = async (id) => {
+  const res = await api.delete(`/api/cuentas/financieras/${id}`);
+  return res.data;
+};
+
 export const crearCategoria = async (datos) => {
   const res = await api.post('/api/categorias', datos);
   return res.data;

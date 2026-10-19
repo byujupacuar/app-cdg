@@ -249,6 +249,57 @@ export const invitarPareja = async (emailPareja, token) => {
   }
 };
 
+export const obtenerCuentasFinancieras = async (token) => {
+  try {
+    const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { exito: true, cuentas: respuesta.data.cuentas };
+  } catch (error) {
+    console.error("Error al consultar cuentas financieras:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar las cuentas." };
+  }
+};
+
+export const crearCuentaFinanciera = async (datos, token) => {
+  try {
+    const respuesta = await axios.post(`${API_URL}/api/cuentas/financieras`, datos, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, cuenta: respuesta.data.cuenta };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo crear la cuenta." };
+  }
+};
+
+export const actualizarCuentaFinanciera = async (id, datos, token) => {
+  try {
+    const respuesta = await axios.put(`${API_URL}/api/cuentas/financieras/${id}`, datos, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, cuenta: respuesta.data.cuenta };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo actualizar la cuenta." };
+  }
+};
+
+export const eliminarCuentaFinanciera = async (id, token) => {
+  try {
+    const respuesta = await axios.delete(`${API_URL}/api/cuentas/financieras/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { exito: true, mensaje: respuesta.data.mensaje };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo eliminar la cuenta." };
+  }
+};
+
 export const obtenerCategorias = async (token) => {
   try {
     const res = await axios.get(`${API_URL}/api/categorias`, {
