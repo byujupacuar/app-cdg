@@ -1,10 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { abonarPrestamo, crearPrestamo, obtenerPrestamos } from '../services/api';
+import { abonarPrestamo, actualizarPlanPrestamo, crearPrestamo, obtenerPrestamos } from '../services/api';
 
 const currency = (amount) => new Intl.NumberFormat('es', {
   style: 'currency',
   currency: 'USD'
 }).format(Number(amount) || 0);
+
+const todayIsoDate = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+};
 
 export default function Prestamos() {
   const [prestamos, setPrestamos] = useState([]);
@@ -12,9 +23,16 @@ export default function Prestamos() {
   const [tipoLista, setTipoLista] = useState('OTORGADO');
   const [contactName, setContactName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
+  const [loanDate, setLoanDate] = useState(todayIsoDate);
+  const [dueDate, setDueDate] = useState('');
+  const [newInstallments, setNewInstallments] = useState([]);
   const [tipoNuevo, setTipoNuevo] = useState('OTORGADO');
   const [abono, setAbono] = useState('');
+  const [paymentDate, setPaymentDate] = useState(todayIsoDate);
   const [prestamoAbono, setPrestamoAbono] = useState(null);
+  const [prestamoPlan, setPrestamoPlan] = useState(null);
+  const [planDueDate, setPlanDueDate] = useState('');
+  const [planInstallments, setPlanInstallments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -47,20 +65,66 @@ export default function Prestamos() {
       setError('Escribe un contacto y un monto mayor que cero.');
       return;
     }
+    const installments = newInstallments.filter((installment) => installment.dueDate || installment.amount);
+    if (installments.some((installment) => !installment.dueDate || !Number.isFinite(Number(installment.amount)) || Number(installment.amount) <= 0) ||
+      (installments.length && installments.reduce((sum, installment) => sum + Math.round(Number(installment.amount) * 100), 0) !== Math.round(amount * 100))) {
+      setError('Completa la fecha y el monto de cada cuota. La suma de las cuotas debe coincidir con el monto total.');
+      return;
+    }
 
     setSaving(true);
     try {
       await crearPrestamo({
         contactName: contactName.trim(),
         totalAmount: amount,
-        type: tipoNuevo
+        type: tipoNuevo,
+        loanDate,
+        dueDate: dueDate || null,
+        installments: installments.map((installment) => ({ dueDate: installment.dueDate, amount: Number(installment.amount) }))
       });
       setContactName('');
       setTotalAmount('');
+      setLoanDate(todayIsoDate());
+      setDueDate('');
+      setNewInstallments([]);
       setMessage(tipoNuevo === 'OTORGADO' ? 'Préstamo registrado: queda pendiente de cobro.' : 'Deuda registrada correctamente.');
       await loadLoans();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo registrar el préstamo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const editPlan = (loan) => {
+    setPrestamoPlan(loan);
+    setPlanDueDate(loan.dueDate ? String(loan.dueDate).slice(0, 10) : '');
+    setPlanInstallments(loan.installments?.length
+      ? loan.installments.map((installment) => ({ dueDate: String(installment.dueDate).slice(0, 10), amount: String(installment.amount) }))
+      : [{ dueDate: todayIsoDate(), amount: String(loan.totalAmount) }]);
+  };
+
+  const submitPlan = async (event) => {
+    event.preventDefault();
+    setError('');
+    const installments = planInstallments.filter((installment) => installment.dueDate || installment.amount);
+    if (!installments.length || installments.some((installment) => !installment.dueDate || !Number.isFinite(Number(installment.amount)) || Number(installment.amount) <= 0) ||
+      installments.reduce((sum, installment) => sum + Math.round(Number(installment.amount) * 100), 0) !== Math.round(Number(prestamoPlan.totalAmount) * 100)) {
+      setError('Completa las fechas e importes. La suma de las cuotas debe coincidir con el monto original del préstamo.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await actualizarPlanPrestamo(prestamoPlan.id, {
+        dueDate: planDueDate || null,
+        installments: installments.map((installment) => ({ dueDate: installment.dueDate, amount: Number(installment.amount) }))
+      });
+      setPrestamoPlan(null);
+      setMessage('Plan de pagos actualizado.');
+      await loadLoans();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo actualizar el plan de pagos.');
     } finally {
       setSaving(false);
     }
@@ -78,9 +142,10 @@ export default function Prestamos() {
 
     setSaving(true);
     try {
-      await abonarPrestamo(prestamoAbono.id, amount);
+      await abonarPrestamo(prestamoAbono.id, amount, paymentDate);
       setPrestamoAbono(null);
       setAbono('');
+      setPaymentDate(todayIsoDate());
       setMessage('Abono registrado. El saldo pendiente se actualizó.');
       await loadLoans();
     } catch (err) {
@@ -156,6 +221,10 @@ export default function Prestamos() {
                 const due = Number(loan.dueAmount) || 0;
                 const paidPercent = total > 0 ? Math.min(((total - due) / total) * 100, 100) : 0;
                 const settled = due <= 0;
+                const payments = loan.payments || [];
+                const paidTotal = total - due;
+                const priorPayments = Math.max(0, paidTotal - payments.reduce((sum, payment) => sum + Number(payment.amount), 0));
+                const installments = loan.installments || [];
                 return (
                   <article className="loan-item" key={loan.id}>
                     <div className="loan-item-top">
@@ -165,10 +234,32 @@ export default function Prestamos() {
                       <div className="loan-contact-info">
                         <strong>{loan.contactName}</strong>
                         <small>{loan.type === 'OTORGADO' ? 'Le prestaste' : 'Te prestaron'} {currency(total)}</small>
+                        <small>Fecha del préstamo: {formatDate(loan.loanDate || loan.createdAt)}</small>
                       </div>
                       <span className={`loan-state ${settled ? 'loan-settled' : 'loan-open'}`}>
                         {settled ? 'Liquidado' : 'Pendiente'}
                       </span>
+                    </div>
+                    <div className="loan-schedule">
+                      <strong>Fechas de pago</strong>
+                      {loan.dueDate ? (
+                        <small className={!settled && String(loan.dueDate).slice(0, 10) < todayIsoDate() ? 'loan-overdue' : ''}>
+                          Fecha límite: {formatDate(loan.dueDate)}
+                          {!settled && String(loan.dueDate).slice(0, 10) < todayIsoDate() ? ' · Vencido' : ''}
+                        </small>
+                      ) : <small>Sin fecha límite general.</small>}
+                      {installments.length ? installments.map((installment) => {
+                        const paidAmount = Number(installment.paidAmount);
+                        const paid = paidAmount >= Number(installment.amount) - 0.005;
+                        const overdue = !paid && !settled && String(installment.dueDate).slice(0, 10) < todayIsoDate();
+                        return (
+                          <div className="loan-payment-row" key={installment.id}>
+                            <span className={overdue ? 'loan-overdue' : ''}>{formatDate(installment.dueDate)} · {paid ? 'Pagada' : paidAmount > 0 ? 'Parcial' : overdue ? 'Vencida' : 'Pendiente'}</span>
+                            <strong>{paidAmount > 0 ? `${currency(paidAmount)} de ${currency(installment.amount)}` : currency(installment.amount)}</strong>
+                          </div>
+                        );
+                      }) : <small>No hay cuotas programadas.</small>}
+                      <button type="button" className="text-button" onClick={() => editPlan(loan)}>Programar fechas de pago</button>
                     </div>
                     <div className="loan-progress">
                       <span style={{ width: `${paidPercent}%` }} />
@@ -176,10 +267,24 @@ export default function Prestamos() {
                     <div className="loan-item-bottom">
                       <span>Saldo <strong>{currency(due)}</strong></span>
                       {!settled && (
-                        <button type="button" className="text-button" onClick={() => { setPrestamoAbono(loan); setAbono(''); }}>
+                        <button type="button" className="text-button" onClick={() => { setPrestamoAbono(loan); setAbono(''); setPaymentDate(todayIsoDate()); }}>
                           Registrar abono <span aria-hidden="true">→</span>
                         </button>
                       )}
+                    </div>
+                    <div className="loan-payment-history">
+                      <strong>Historial de pagos</strong>
+                      {priorPayments > 0.005 && (
+                        <small className="loan-prior-payments">Pagos anteriores sin fecha registrada: {currency(priorPayments)}</small>
+                      )}
+                      {payments.length === 0 && priorPayments <= 0.005 ? (
+                        <small>Aún no hay pagos registrados.</small>
+                      ) : payments.map((payment) => (
+                        <div className="loan-payment-row" key={payment.id}>
+                          <span>{formatDate(payment.date)}</span>
+                          <strong>{currency(payment.amount)}</strong>
+                        </div>
+                      ))}
                     </div>
                   </article>
                 );
@@ -209,12 +314,54 @@ export default function Prestamos() {
               <span>$</span>
               <input id="loan-total" type="number" min="0.01" step="0.01" value={totalAmount} onChange={(event) => setTotalAmount(event.target.value)} placeholder="0.00" required />
             </div>
+            <label htmlFor="loan-date">Fecha del préstamo</label>
+            <input id="loan-date" type="date" value={loanDate} onChange={(event) => setLoanDate(event.target.value)} required />
+            <label htmlFor="loan-due-date">Fecha límite general (opcional)</label>
+            <input id="loan-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <label>Cuotas mensuales (opcional)</label>
+            {newInstallments.map((installment, index) => (
+              <div className="loan-installment-editor" key={`new-installment-${index}`}>
+                <input aria-label={`Fecha de cuota ${index + 1}`} type="date" value={installment.dueDate} onChange={(event) => setNewInstallments((current) => current.map((item, i) => i === index ? { ...item, dueDate: event.target.value } : item))} />
+                <input aria-label={`Monto de cuota ${index + 1}`} type="number" min="0.01" step="0.01" placeholder="Monto" value={installment.amount} onChange={(event) => setNewInstallments((current) => current.map((item, i) => i === index ? { ...item, amount: event.target.value } : item))} />
+                <button type="button" className="text-button" aria-label={`Quitar cuota ${index + 1}`} onClick={() => setNewInstallments((current) => current.filter((_, i) => i !== index))}>Quitar</button>
+              </div>
+            ))}
+            <button type="button" className="text-button loan-add-installment" onClick={() => setNewInstallments((current) => [...current, { dueDate: todayIsoDate(), amount: '' }])}>+ Agregar cuota</button>
             <button className="button-primary form-submit" type="submit" disabled={saving}>
               {saving ? 'Guardando...' : 'Guardar préstamo'}
             </button>
           </form>
         </section>
       </div>
+
+      {prestamoPlan && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPrestamoPlan(null); }}>
+          <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="loan-plan-title">
+            <button className="dialog-close" type="button" aria-label="Cerrar" onClick={() => setPrestamoPlan(null)}>×</button>
+            <span className="panel-kicker">SEGUIMIENTO</span>
+            <h2 id="loan-plan-title">Plan de pagos · {prestamoPlan.contactName}</h2>
+            <p className="form-intro">Las cuotas deben sumar {currency(prestamoPlan.totalAmount)}.</p>
+            {error && <div className="inline-error" role="alert">{error}</div>}
+            <form onSubmit={submitPlan}>
+              <label htmlFor="loan-plan-due-date">Fecha límite general (opcional)</label>
+              <input id="loan-plan-due-date" type="date" value={planDueDate} onChange={(event) => setPlanDueDate(event.target.value)} />
+              <label>Cuotas mensuales</label>
+              {planInstallments.map((installment, index) => (
+                <div className="loan-installment-editor" key={`plan-installment-${index}`}>
+                  <input aria-label={`Fecha de cuota ${index + 1}`} type="date" value={installment.dueDate} onChange={(event) => setPlanInstallments((current) => current.map((item, i) => i === index ? { ...item, dueDate: event.target.value } : item))} />
+                  <input aria-label={`Monto de cuota ${index + 1}`} type="number" min="0.01" step="0.01" placeholder="Monto" value={installment.amount} onChange={(event) => setPlanInstallments((current) => current.map((item, i) => i === index ? { ...item, amount: event.target.value } : item))} />
+                  <button type="button" className="text-button" aria-label={`Quitar cuota ${index + 1}`} onClick={() => setPlanInstallments((current) => current.filter((_, i) => i !== index))}>Quitar</button>
+                </div>
+              ))}
+              <button type="button" className="text-button loan-add-installment" onClick={() => setPlanInstallments((current) => [...current, { dueDate: todayIsoDate(), amount: '' }])}>+ Agregar cuota</button>
+              <button className="button-primary form-submit" type="submit" disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar plan'}
+              </button>
+              <button className="button-quiet" type="button" onClick={() => setPrestamoPlan(null)}>Cancelar</button>
+            </form>
+          </section>
+        </div>
+      )}
 
       {prestamoAbono && (
         <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPrestamoAbono(null); }}>
@@ -230,6 +377,8 @@ export default function Prestamos() {
                 <span>$</span>
                 <input id="loan-payment" type="number" min="0.01" step="0.01" value={abono} onChange={(event) => setAbono(event.target.value)} placeholder="0.00" required autoFocus />
               </div>
+              <label htmlFor="loan-payment-date">Fecha del pago</label>
+              <input id="loan-payment-date" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
               <button className="button-primary form-submit" type="submit" disabled={saving}>
                 {saving ? 'Registrando...' : 'Registrar abono'}
               </button>

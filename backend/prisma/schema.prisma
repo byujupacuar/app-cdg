@@ -99,15 +99,41 @@ model Budget {
 }
 
 model Loan {
-  id          String    @id @default(uuid())
-  contactName String
-  totalAmount Float
-  dueAmount   Float
-  type        LoanType
-  dueDate     DateTime?
-  accountId   String
-  userId      String
-  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id])
-  createdAt   DateTime  @default(now())
+  id           String            @id @default(uuid())
+  contactName  String
+  totalAmount  Float
+  dueAmount    Float
+  type         LoanType
+  loanDate     DateTime          @default(now())
+  dueDate      DateTime?
+  accountId    String
+  userId       String
+  account      Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id])
+  payments     LoanPayment[]
+  installments LoanInstallment[]
+  createdAt    DateTime          @default(now())
+}
+
+model LoanPayment {
+  id        String   @id @default(uuid())
+  amount    Float
+  date      DateTime @default(now())
+  loanId    String
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([loanId, date])
+}
+
+model LoanInstallment {
+  id         String   @id @default(uuid())
+  amount     Float
+  paidAmount Float    @default(0)
+  dueDate    DateTime
+  loanId     String
+  loan       Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([loanId, dueDate])
 }

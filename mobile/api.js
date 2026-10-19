@@ -188,13 +188,28 @@ export const crearPrestamo = async (datos, token) => {
     return { exito: true, prestamo: respuesta.data.prestamo };
   } catch (error) {
     console.error("Error al crear préstamo:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudo crear el préstamo." };
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo crear el préstamo." };
   }
 };
 
-export const abonarPrestamo = async (id, abonoAmount, token) => {
+export const actualizarPlanPrestamo = async (id, plan, token) => {
   try {
-    const respuesta = await axios.patch(`${API_URL}/api/prestamos/${id}/abonar`, { abonoAmount }, {
+    const respuesta = await axios.put(`${API_URL}/api/prestamos/${id}/plan`, plan, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, prestamo: respuesta.data.prestamo };
+  } catch (error) {
+    console.error("Error al actualizar plan de pagos:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo actualizar el plan de pagos." };
+  }
+};
+
+export const abonarPrestamo = async (id, abonoAmount, token, paymentDate) => {
+  try {
+    const respuesta = await axios.patch(`${API_URL}/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate }, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
