@@ -173,7 +173,7 @@ export const obtenerPrestamos = async (token) => {
     return { exito: true, datos: respuesta.data };
   } catch (error) {
     console.error("Error al obtener préstamos:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudieron cargar los préstamos." };
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar los préstamos." };
   }
 };
 
