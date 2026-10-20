@@ -24,7 +24,7 @@ const tipos = [
   { value: 'BANCO', label: 'Banco' },
   { value: 'DEBITO', label: 'Débito' },
   { value: 'CREDITO', label: 'Crédito' },
-  { value: 'OTRO', label: 'Otro' }
+  { value: 'OTRO', label: 'Otro lugar' }
 ];
 
 const etiquetaTipo = (tipo) => tipos.find((item) => item.value === tipo)?.label || tipo;
@@ -254,6 +254,7 @@ export default function CuentasScreen({ token }) {
           <>
             <Text style={styles.label}>Tipo personalizado</Text>
             <TextInput style={styles.input} value={tipoPersonalizado} onChangeText={setTipoPersonalizado} placeholder="Ej. Billetera digital" maxLength={30} />
+            <Text style={styles.textoAyuda}>Puedes añadir varios lugares, como PayPal, una caja de ahorro u otra billetera.</Text>
           </>
         )}
         {tipo === 'DEBITO' ? (

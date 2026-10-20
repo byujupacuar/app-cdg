@@ -35,7 +35,10 @@ La sección **Cuentas** permite añadir efectivo, cuentas bancarias, tarjetas de
 débito vinculadas a un banco, tarjetas de crédito y tipos personalizados. Los
 saldos iniciales pueden ajustarse; las transferencias actualizan ambos lados
 sin contarse como ingresos o gastos. La deuda de tarjetas de crédito se muestra
-separada del dinero disponible.
+separada del dinero disponible. En **Análisis** puedes filtrar los ingresos y
+gastos por cuenta y período, consultar sus movimientos y exportarlos a CSV.
+En la web, el menú con tu nombre en la parte superior muestra los miembros de la
+cuenta, permite invitar a una pareja registrada y cerrar sesión.
 
 ## Web
 

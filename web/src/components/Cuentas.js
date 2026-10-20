@@ -268,12 +268,13 @@ export default function Cuentas({ onUpdated }) {
               <option value="BANCO">Cuenta bancaria</option>
               <option value="DEBITO">Tarjeta de débito</option>
               <option value="CREDITO">Tarjeta de crédito</option>
-              <option value="OTRO">Otro tipo</option>
+              <option value="OTRO">Otro lugar o cuenta</option>
             </select>
             {tipo === 'OTRO' && (
               <>
                 <label htmlFor="account-custom-type">Tipo personalizado</label>
                 <input id="account-custom-type" value={tipoPersonalizado} maxLength={30} onChange={(event) => setTipoPersonalizado(event.target.value)} placeholder="Ej. Billetera digital" required />
+                <small className="account-form-help">Puedes añadir varios lugares, como PayPal, una caja de ahorro u otra billetera.</small>
               </>
             )}
             {tipo === 'DEBITO' ? (

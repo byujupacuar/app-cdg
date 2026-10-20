@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { obtenerDashboard } from '../services/api';
+import { exportarMovimientosCSV, obtenerDashboard } from '../services/api';
 
 const currency = (value) => new Intl.NumberFormat('es', {
   style: 'currency',
@@ -39,14 +39,20 @@ export default function Analisis({ refreshKey, onNavigate }) {
   const [rango, setRango] = useState(inicial);
   const [presetActivo, setPresetActivo] = useState('30dias');
   const [datos, setDatos] = useState(null);
+  const [cuentaId, setCuentaId] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [exportando, setExportando] = useState(false);
   const [error, setError] = useState('');
 
   const cargarAnalisis = useCallback(async () => {
     setCargando(true);
     setError('');
     try {
-      const response = await obtenerDashboard(rango);
+      const response = await obtenerDashboard({
+        ...rango,
+        financialAccountId: cuentaId || undefined,
+        incluirTodos: true
+      });
       if (!response.exito) {
         throw new Error(response.error || 'No se pudo consultar el período.');
       }
@@ -57,7 +63,7 @@ export default function Analisis({ refreshKey, onNavigate }) {
     } finally {
       setCargando(false);
     }
-  }, [rango]);
+  }, [rango, cuentaId]);
 
   useEffect(() => {
     cargarAnalisis();
@@ -86,6 +92,29 @@ export default function Analisis({ refreshKey, onNavigate }) {
     setRango({ fechaInicio: desde, fechaFin: hasta });
   };
 
+  const descargarCSV = async () => {
+    setError('');
+    setExportando(true);
+    try {
+      const csv = await exportarMovimientosCSV({
+        ...rango,
+        financialAccountId: cuentaId || undefined
+      });
+      const url = URL.createObjectURL(csv);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `movimientos-${rango.fechaInicio}-${rango.fechaFin}.csv`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudieron exportar los movimientos.');
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const resumen = datos?.resumen || {};
   const balance = Number(resumen.balanceTotal) || 0;
   const ingresos = Number(resumen.totalIngresos) || 0;
@@ -93,6 +122,8 @@ export default function Analisis({ refreshKey, onNavigate }) {
   const movimientos = datos?.ultimosMovimientos || [];
   const categorias = datos?.gastosPorCategoria || [];
   const totalMovimientos = Number(resumen.totalMovimientos) || 0;
+  const cuentas = datos?.resumenCuentas?.cuentas || [];
+  const cuentaSeleccionada = cuentas.find((cuenta) => cuenta.id === cuentaId);
 
   return (
     <div className="analysis-page">
@@ -147,6 +178,27 @@ export default function Analisis({ refreshKey, onNavigate }) {
             Aplicar período
           </button>
         </form>
+        <div className="analysis-account-filter">
+          <label htmlFor="analysis-account">Cuenta o lugar</label>
+          <select
+            id="analysis-account"
+            value={cuentaId}
+            onChange={(event) => setCuentaId(event.target.value)}
+          >
+            <option value="">Todas las cuentas</option>
+            {cuentas.map((cuenta) => (
+              <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>
+            ))}
+          </select>
+          <button
+            className="button-secondary analysis-export-button"
+            type="button"
+            onClick={descargarCSV}
+            disabled={cargando || exportando}
+          >
+            {exportando ? 'Preparando CSV...' : '↓ Exportar CSV'}
+          </button>
+        </div>
       </section>
 
       {error && <div className="inline-error" role="alert">{error}</div>}
@@ -154,6 +206,30 @@ export default function Analisis({ refreshKey, onNavigate }) {
         <div className="page-loading"><span className="loader" />Consultando movimientos del período...</div>
       ) : datos && (
         <>
+          <section className="analysis-account-summary" aria-label="Saldos por cuenta">
+            {cuentas.map((cuenta) => (
+              <button
+                className={`analysis-account-card ${cuentaId === cuenta.id ? 'is-selected' : ''}`}
+                key={cuenta.id}
+                type="button"
+                onClick={() => setCuentaId(cuentaId === cuenta.id ? '' : cuenta.id)}
+                aria-pressed={cuentaId === cuenta.id}
+              >
+                <span>{cuenta.name}</span>
+                <strong className={cuenta.esCredito ? 'amount-negative' : ''}>
+                  {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
+                </strong>
+                <small>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'} · ver actividad</small>
+              </button>
+            ))}
+          </section>
+
+          {cuentaSeleccionada && (
+            <p className="analysis-account-context">
+              Mostrando movimientos de <strong>{cuentaSeleccionada.name}</strong> en el período seleccionado.
+            </p>
+          )}
+
           <section className="analysis-metrics" aria-label="Resumen del período">
             <article className="analysis-balance-card">
               <span className="analysis-metric-label">Balance neto</span>
@@ -213,7 +289,7 @@ export default function Analisis({ refreshKey, onNavigate }) {
               <div className="panel-heading">
                 <div>
                   <span className="panel-kicker">ACTIVIDAD</span>
-                  <h2>Movimientos del período</h2>
+                  <h2>{cuentaSeleccionada ? `Movimientos · ${cuentaSeleccionada.name}` : 'Movimientos del período'}</h2>
                 </div>
                 <span className="period-result-count">{totalMovimientos}</span>
               </div>
@@ -233,7 +309,9 @@ export default function Analisis({ refreshKey, onNavigate }) {
                           <span className={`recent-icon ${gasto ? 'recent-expense' : 'recent-income'}`}>{movement.category?.icon || '◇'}</span>
                           <span className="recent-description">
                             <strong>{movement.category?.name || 'General'}</strong>
-                            <small>{movement.description || 'Sin detalle'} · {fechaLegible(String(movement.date).slice(0, 10))}</small>
+                            <small>
+                              {movement.financialAccount?.name || 'Sin cuenta'} · {movement.description || 'Sin detalle'} · {fechaLegible(String(movement.date).slice(0, 10))}
+                            </small>
                           </span>
                           <strong className={gasto ? 'amount-negative' : 'amount-positive'}>{gasto ? '−' : '+'}{currency(movement.amount)}</strong>
                         </div>

@@ -181,6 +181,88 @@ router.get('/', autenticarToken, async (req, res) => {
   }
 });
 
+router.get('/exportar.csv', autenticarToken, async (req, res) => {
+  try {
+    const userId = req.usuario.userId;
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId }
+    });
+
+    if (!relacionCuenta) {
+      return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
+    }
+
+    const { fechaInicio, fechaFin, financialAccountId } = req.query;
+    const esFechaValida = (valor) => {
+      if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+      const fecha = new Date(`${valor}T00:00:00.000Z`);
+      return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+    };
+
+    if ((fechaInicio && !esFechaValida(fechaInicio)) || (fechaFin && !esFechaValida(fechaFin))) {
+      return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD.' });
+    }
+
+    if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
+      return res.status(400).json({ error: 'La cuenta seleccionada no es válida.' });
+    }
+
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+      return res.status(400).json({ error: 'La fecha inicial no puede ser posterior a la fecha final.' });
+    }
+
+    if (financialAccountId) {
+      const cuentaFinanciera = await prisma.financialAccount.findFirst({
+        where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
+      });
+      if (!cuentaFinanciera) {
+        return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
+      }
+    }
+
+    const date = {};
+    if (fechaInicio) date.gte = new Date(`${fechaInicio}T00:00:00.000Z`);
+    if (fechaFin) date.lte = new Date(`${fechaFin}T23:59:59.999Z`);
+
+    const movimientos = await prisma.transaction.findMany({
+      where: {
+        accountId: relacionCuenta.accountId,
+        ...(Object.keys(date).length > 0 && { date }),
+        ...(financialAccountId && { financialAccountId })
+      },
+      include: { category: true, financialAccount: true },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+    });
+
+    const protegerCelda = (valor) => {
+      const texto = String(valor ?? '');
+      const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+      return `"${seguro.replace(/"/g, '""')}"`;
+    };
+    const filas = [
+      ['Fecha', 'Cuenta', 'Tipo', 'Categoría', 'Descripción', 'Monto'],
+      ...movimientos.map((movimiento) => [
+        movimiento.date.toISOString(),
+        movimiento.financialAccount?.name || 'Sin cuenta',
+        movimiento.type,
+        movimiento.category?.name || 'General',
+        movimiento.description || 'Sin detalle',
+        String(movimiento.amount)
+      ])
+    ];
+    const csv = `\uFEFF${filas.map((fila) => fila.map(protegerCelda).join(',')).join('\r\n')}`;
+    const desde = typeof fechaInicio === 'string' ? fechaInicio : 'todo';
+    const hasta = typeof fechaFin === 'string' ? fechaFin : 'todo';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="movimientos-${desde}-${hasta}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    console.error('Error al exportar movimientos CSV:', error);
+    res.status(500).json({ error: 'No se pudieron exportar los movimientos.' });
+  }
+});
+
 router.put('/:id', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
@@ -295,7 +377,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     const accountId = relacionCuenta.accountId;
 
     const ahora = new Date();
-    const { fechaInicio, fechaFin } = req.query;
+    const { fechaInicio, fechaFin, financialAccountId } = req.query;
     const esFechaValida = (valor) => {
       if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
       const fecha = new Date(`${valor}T00:00:00.000Z`);
@@ -304,6 +386,19 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
 
     if ((fechaInicio && !esFechaValida(fechaInicio)) || (fechaFin && !esFechaValida(fechaFin))) {
       return res.status(400).json({ error: 'Las fechas deben tener el formato AAAA-MM-DD.' });
+    }
+
+    if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
+      return res.status(400).json({ error: 'La cuenta seleccionada no es válida.' });
+    }
+
+    if (financialAccountId) {
+      const cuentaFinanciera = await prisma.financialAccount.findFirst({
+        where: { id: financialAccountId, householdAccountId: accountId }
+      });
+      if (!cuentaFinanciera) {
+        return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
+      }
     }
 
     const inicioMes = fechaInicio
@@ -318,20 +413,25 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     }
 
     const rangoFechas = { gte: inicioMes, lte: finMes };
+    const filtroMovimientos = {
+      accountId,
+      date: rangoFechas,
+      ...(financialAccountId && { financialAccountId })
+    };
 
     // 2. Obtener sumatorias y cantidad de movimientos del rango
     const ingresosAgregados = await prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { accountId, type: 'INGRESO', date: rangoFechas }
+      where: { ...filtroMovimientos, type: 'INGRESO' }
     });
 
     const gastosAgregados = await prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: { accountId, type: 'GASTO', date: rangoFechas }
+      where: { ...filtroMovimientos, type: 'GASTO' }
     });
 
     const totalMovimientos = await prisma.transaction.count({
-      where: { accountId, date: rangoFechas }
+      where: filtroMovimientos
     });
 
     const totalIngresos = ingresosAgregados._sum.amount || 0;
@@ -342,7 +442,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
     const gastosPorCategoriaGroup = await prisma.transaction.groupBy({
       by: ['categoryId'],
       _sum: { amount: true },
-      where: { accountId, type: 'GASTO', date: rangoFechas },
+      where: { ...filtroMovimientos, type: 'GASTO' },
       orderBy: { _sum: { amount: 'desc' } }
     });
 
@@ -365,10 +465,10 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
 
     // 4. Movimientos más recientes dentro del rango consultado
     const ultimosMovimientos = await prisma.transaction.findMany({
-      where: { accountId, date: rangoFechas },
+      where: filtroMovimientos,
       include: { category: true, financialAccount: true },
-      orderBy: { date: 'desc' },
-      take: 10
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      ...(req.query.incluirTodos !== 'true' && { take: 10 })
     });
     const resumenCuentas = await obtenerSaldosCuentasFinancieras(prisma, accountId);
 

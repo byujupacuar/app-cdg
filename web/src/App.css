@@ -111,18 +111,6 @@ button { color: inherit; }
 .sidebar-note-icon { color: #b69a61; display: block; font-size: 16px; margin-bottom: 11px; }
 .sidebar-note strong { color: var(--green-950); font-size: 12px; }
 .sidebar-note p { color: var(--muted); font-size: 11px; line-height: 1.55; margin: 5px 0 0; }
-.sidebar-logout {
-  background: transparent;
-  border: 0;
-  color: #7a857e;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  margin-top: 18px;
-  padding: 10px 8px;
-  text-align: left;
-}
-.sidebar-logout span { font-size: 17px; margin-right: 8px; vertical-align: -1px; }
 
 .app-main { margin-left: 250px; min-height: 100vh; }
 .app-topbar {
@@ -148,6 +136,28 @@ button { color: inherit; }
   padding: 9px 13px;
 }
 .topbar-status span { background: #56a77c; border-radius: 50%; height: 7px; width: 7px; }
+.user-menu { position: relative; }
+.user-menu-trigger { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; display: flex; gap: 10px; max-width: 270px; min-height: 47px; padding: 6px 10px 6px 7px; text-align: left; }
+.user-menu-trigger:hover, .user-menu-trigger[aria-expanded="true"] { border-color: #cbdccf; }
+.user-menu-avatar { align-items: center; background: var(--green-100); border-radius: 10px; color: var(--green-800); display: inline-flex; flex: 0 0 33px; font-size: 14px; font-weight: 750; height: 33px; justify-content: center; }
+.user-menu-identity { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.user-menu-identity strong { color: var(--green-950); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-menu-identity small { color: var(--muted); font-size: 9px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-menu-chevron { color: var(--muted); font-size: 16px; }
+.user-menu-panel { background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 45px rgba(24,52,37,.15); max-height: calc(100vh - 125px); overflow-y: auto; padding: 16px; position: absolute; right: 0; top: calc(100% + 9px); width: min(340px, calc(100vw - 30px)); z-index: 10; }
+.user-menu-account { border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; }
+.user-menu-account > strong { color: var(--green-950); font-size: 13px; }
+.user-menu-account > small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.user-menu-invite { display: flex; flex-direction: column; gap: 8px; padding: 13px 0; }
+.user-menu-invite label { color: var(--ink); font-size: 11px; font-weight: 700; }
+.user-menu-invite > small, .user-menu-note { color: var(--muted); font-size: 10px; margin: 0; }
+.user-menu-invite input { background: #fbfcfb; border: 1px solid #e6ebe7; border-radius: 8px; min-height: 38px; padding: 8px 10px; }
+.user-menu-invite .button-primary { min-height: 38px; }
+.user-menu-note { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.user-menu-message { background: var(--green-50); border-radius: 8px; color: var(--green-800); font-size: 10px; line-height: 1.5; margin: 0 0 10px; overflow-wrap: anywhere; padding: 9px; }
+.user-menu-message.is-error { background: var(--red-soft); color: #a25445; }
+.user-menu-logout { background: transparent; border: 0; border-radius: 8px; color: #a25445; cursor: pointer; font-size: 11px; font-weight: 700; padding: 10px 7px; text-align: left; width: 100%; }
+.user-menu-logout:hover { background: var(--red-soft); }
 .app-page { margin: 0 auto; max-width: 1440px; padding: 35px clamp(25px, 5vw, 72px) 60px; }
 
 .welcome-row, .categories-intro {
@@ -264,6 +274,17 @@ button { color: inherit; }
 .period-form input:focus { border-color: #8ab59a; box-shadow: 0 0 0 3px rgba(69,139,94,.1); outline: 0; }
 .period-separator { color: #9aa39d; font-size: 10px; padding-bottom: 12px; }
 .period-form .button-primary { min-height: 38px; }
+.analysis-account-filter { align-items: end; border-top: 1px solid var(--line); display: flex; gap: 10px; margin-top: 17px; padding-top: 15px; }
+.analysis-account-filter label { color: #5f6d64; font-size: 11px; font-weight: 700; }
+.analysis-account-filter select { background: #fbfcfb; border: 1px solid #e6ebe7; border-radius: 9px; color: var(--ink); font-size: 12px; min-height: 39px; min-width: 210px; padding: 8px 11px; }
+.analysis-export-button { margin-left: auto; min-height: 39px; }
+.analysis-account-summary { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); margin-bottom: 12px; }
+.analysis-account-card { background: #fff; border: 1px solid #edf0ed; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 14px; text-align: left; transition: border-color .15s, background .15s; }
+.analysis-account-card:hover, .analysis-account-card.is-selected { background: #f2f7f3; border-color: #8ab59a; }
+.analysis-account-card > span { color: #68766d; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-account-card > strong { color: var(--green-950); font-size: 17px; }
+.analysis-account-card > small, .analysis-account-context { color: #89968e; font-size: 10px; }
+.analysis-account-context { margin: 0 0 12px; }
 .analysis-metrics { display: grid; gap: 13px; grid-template-columns: 1.2fr 1fr 1fr 1fr; margin-bottom: 16px; }
 .analysis-balance-card, .analysis-metric-card { background: #fff; border: 1px solid #edf0ed; border-radius: 14px; box-shadow: var(--shadow); min-height: 135px; padding: 17px; }
 .analysis-balance-card { background: linear-gradient(135deg, #1c5a42, #2c7757); border: 0; display: flex; flex-direction: column; justify-content: center; }
@@ -574,7 +595,7 @@ button { color: inherit; }
   .app-sidebar { border-bottom: 1px solid var(--line); border-right: 0; bottom: auto; padding: 12px 15px 10px; position: sticky; top: 0; width: 100%; }
   .app-brand { font-size: 17px; margin: 0 0 12px 2px; }
   .app-brand-mark { border-radius: 10px 10px 10px 3px; font-size: 21px; height: 34px; width: 34px; }
-  .app-brand small, .sidebar-caption, .sidebar-note, .sidebar-logout { display: none; }
+  .app-brand small, .sidebar-caption, .sidebar-note { display: none; }
   .app-navigation { display: flex; gap: 2px; overflow: visible; }
   .navigation-item { flex: 1 1 0; flex-direction: column; font-size: 8px; gap: 3px; justify-content: center; line-height: 1.1; min-height: 44px; min-width: 0; padding: 4px 1px; text-align: center; }
   .navigation-icon { font-size: 14px; line-height: 1; width: auto; }
@@ -582,8 +603,10 @@ button { color: inherit; }
   .app-main { margin-left: 0; }
   .app-topbar { min-height: 76px; padding: 14px 20px; }
   .app-topbar h1 { font-size: 21px; }
-  .topbar-status { font-size: 0; height: 31px; padding: 0; width: 31px; }
-  .topbar-status span { height: 8px; width: 8px; }
+  .user-menu-trigger { max-width: 190px; min-height: 40px; }
+  .user-menu-avatar { flex-basis: 29px; height: 29px; }
+  .user-menu-identity strong { font-size: 10px; }
+  .user-menu-identity small { font-size: 8px; }
   .app-page { padding: 22px 17px 40px; }
   .welcome-row, .categories-intro { align-items: flex-start; gap: 15px; }
   .welcome-row h2, .categories-intro h2 { font-size: 17px; }
@@ -609,6 +632,9 @@ button { color: inherit; }
   .period-form input { width: 100%; }
   .period-separator { display: none; }
   .period-form .button-primary { width: 100%; }
+  .analysis-account-filter { align-items: stretch; flex-direction: column; }
+  .analysis-account-filter select { min-width: 0; width: 100%; }
+  .analysis-export-button { margin-left: 0; width: 100%; }
   .analysis-metrics { gap: 9px; }
   .analysis-balance-card, .analysis-metric-card { min-height: 120px; padding: 14px; }
   .analysis-balance-card strong, .analysis-metric-card > strong { font-size: 19px; }

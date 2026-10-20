@@ -288,6 +288,7 @@ router.get('/mi-cuenta', autenticarToken, async (req, res) => {
 
     res.json({
       exito: true,
+      usuario: miembros.find((miembro) => miembro.id === userId) || null,
       cuenta: {
         id: relacion.account.id,
         name: relacion.account.name,

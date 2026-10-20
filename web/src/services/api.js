@@ -28,6 +28,14 @@ export const obtenerDashboard = async (periodo) => {
   return res.data;
 };
 
+export const exportarMovimientosCSV = async (filtros) => {
+  const res = await api.get('/api/movimientos/exportar.csv', {
+    params: filtros,
+    responseType: 'blob'
+  });
+  return res.data;
+};
+
 export const obtenerCategorias = async () => {
   const res = await api.get('/api/categorias');
   return res.data;
@@ -35,6 +43,16 @@ export const obtenerCategorias = async () => {
 
 export const obtenerCuentasFinancieras = async () => {
   const res = await api.get('/api/cuentas/financieras');
+  return res.data;
+};
+
+export const obtenerMiCuenta = async () => {
+  const res = await api.get('/api/cuentas/mi-cuenta');
+  return res.data;
+};
+
+export const invitarPareja = async (emailPareja) => {
+  const res = await api.post('/api/cuentas/invitar', { emailPareja });
   return res.data;
 };
 
