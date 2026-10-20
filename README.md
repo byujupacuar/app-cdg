@@ -23,8 +23,8 @@ npm run dev
 ```
 
 La API queda disponible por defecto en `http://localhost:3000`.
-`npm start` aplica las migraciones pendientes con `prisma migrate deploy` antes
-de iniciar la API.
+`npm start` regenera el cliente Prisma, aplica las migraciones pendientes con
+`prisma migrate deploy` y luego inicia la API.
 
 En Render, configura el directorio raíz del servicio como `backend`, el comando
 de compilación como `npm install` y el comando de inicio como `npm start`.
