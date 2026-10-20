@@ -84,17 +84,21 @@ router.post('/', autenticarToken, async (req, res) => {
 
 // Helper: Procesar mutaciones de Transacciones con LWW
 async function procesarTransaccion(action, data, accountId, userId, clientTimestamp) {
-  const { id, amount, type, description, categoryName, date } = data;
+  const { id, amount, type, description, categoryName, date, financialAccountId } = data;
   const fechaCliente = new Date(clientTimestamp || Date.now());
 
   if (action === 'CREATE') {
-    const cuentaFinanciera = await prisma.financialAccount.findFirst({
-      where: { householdAccountId: accountId },
-      orderBy: { createdAt: 'asc' }
-    });
+    const cuentaFinanciera = financialAccountId
+      ? await prisma.financialAccount.findFirst({
+        where: { id: financialAccountId, householdAccountId: accountId }
+      })
+      : await prisma.financialAccount.findFirst({
+        where: { householdAccountId: accountId },
+        orderBy: { createdAt: 'asc' }
+      });
 
     if (!cuentaFinanciera) {
-      throw new Error('No se encontró una cuenta financiera para el movimiento sincronizado.');
+      throw new Error('No se encontró una cuenta válida para el movimiento sincronizado.');
     }
 
     // Buscar o crear la categoría correspondiente

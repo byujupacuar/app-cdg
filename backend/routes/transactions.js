@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
 
@@ -81,7 +82,7 @@ router.post('/', autenticarToken, async (req, res) => {
     }
 
     if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
-      return res.status(400).json({ error: 'La cuenta financiera seleccionada no es válida.' });
+      return res.status(400).json({ error: 'La cuenta seleccionada no es válida.' });
     }
 
     // 1. Obtener la cuenta vinculada al usuario
@@ -104,7 +105,7 @@ router.post('/', autenticarToken, async (req, res) => {
       });
 
     if (!cuentaFinanciera) {
-      return res.status(400).json({ error: 'Selecciona una cuenta financiera válida.' });
+      return res.status(400).json({ error: 'Crea o selecciona una cuenta válida para este movimiento.' });
     }
 
     // 2. Normalizar el tipo de transacción para el Enum de Prisma
@@ -199,7 +200,7 @@ router.put('/:id', autenticarToken, async (req, res) => {
     }
 
     if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
-      return res.status(400).json({ error: 'La cuenta financiera seleccionada no es válida.' });
+      return res.status(400).json({ error: 'La cuenta seleccionada no es válida.' });
     }
 
     const relacionCuenta = await prisma.accountUser.findFirst({
@@ -217,7 +218,7 @@ router.put('/:id', autenticarToken, async (req, res) => {
       : null;
 
     if (financialAccountId && !cuentaFinanciera) {
-      return res.status(400).json({ error: 'Selecciona una cuenta financiera válida.' });
+      return res.status(400).json({ error: 'Selecciona una cuenta válida para este movimiento.' });
     }
 
     const categoria = await prisma.category.findFirst({
@@ -369,6 +370,7 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
       orderBy: { date: 'desc' },
       take: 10
     });
+    const resumenCuentas = await obtenerSaldosCuentasFinancieras(prisma, accountId);
 
     res.json({
       exito: true,
@@ -385,7 +387,8 @@ router.get('/dashboard', autenticarToken, async (req, res) => {
         fechaFin: fechaFin || new Date(finMes.getTime() - finMes.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
       },
       gastosPorCategoria: categoriasConDetalle,
-      ultimosMovimientos
+      ultimosMovimientos,
+      resumenCuentas
     });
 
   } catch (error) {

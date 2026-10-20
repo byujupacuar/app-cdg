@@ -43,13 +43,18 @@ export const crearCuentaFinanciera = async (datos) => {
   return res.data;
 };
 
-export const actualizarCuentaFinanciera = async (id, datos) => {
-  const res = await api.put(`/api/cuentas/financieras/${id}`, datos);
+export const ajustarSaldoCuentaFinanciera = async (id, saldoActual) => {
+  const res = await api.put(`/api/cuentas/financieras/${id}/saldo`, { saldoActual });
   return res.data;
 };
 
-export const eliminarCuentaFinanciera = async (id) => {
-  const res = await api.delete(`/api/cuentas/financieras/${id}`);
+export const obtenerTransferencias = async () => {
+  const res = await api.get('/api/cuentas/financieras/transferencias');
+  return res.data;
+};
+
+export const crearTransferencia = async (datos) => {
+  const res = await api.post('/api/cuentas/financieras/transferencias', datos);
   return res.data;
 };
 

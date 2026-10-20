@@ -3,10 +3,10 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
-const tiposCuentaFinanciera = ['EFECTIVO', 'BANCO', 'TARJETA'];
-
+const TIPOS_CUENTA_PREDEFINIDOS = new Set(['EFECTIVO', 'BANCO', 'DEBITO', 'CREDITO']);
 // Middleware de autenticación JWT
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -31,12 +31,8 @@ router.get('/financieras', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
     }
 
-    const cuentas = await prisma.financialAccount.findMany({
-      where: { householdAccountId: relacion.accountId },
-      orderBy: [{ createdAt: 'asc' }, { name: 'asc' }]
-    });
-
-    res.json({ exito: true, cuentas });
+    const resumen = await obtenerSaldosCuentasFinancieras(prisma, relacion.accountId);
+    res.json({ exito: true, ...resumen });
   } catch (error) {
     console.error('Error al obtener cuentas financieras:', error);
     res.status(500).json({ error: 'Error al consultar las cuentas financieras.' });
@@ -46,10 +42,24 @@ router.get('/financieras', autenticarToken, async (req, res) => {
 router.post('/financieras', autenticarToken, async (req, res) => {
   try {
     const nombre = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-    const tipo = typeof req.body.type === 'string' ? req.body.type.toUpperCase() : '';
+    const tipoEntrada = typeof req.body.type === 'string' ? req.body.type.trim() : '';
+    const tipo = TIPOS_CUENTA_PREDEFINIDOS.has(tipoEntrada.toUpperCase())
+      ? tipoEntrada.toUpperCase()
+      : tipoEntrada;
+    const saldoInicial = typeof req.body.initialBalance === 'number' || (
+      typeof req.body.initialBalance === 'string' && req.body.initialBalance.trim()
+    ) ? Number(req.body.initialBalance) : Number.NaN;
 
-    if (!nombre || nombre.length > 60 || !tiposCuentaFinanciera.includes(tipo)) {
-      return res.status(400).json({ error: 'Ingresa un nombre de hasta 60 caracteres y un tipo de cuenta válido.' });
+    if (!nombre || nombre.length > 60 || !tipo || tipo.length > 30) {
+      return res.status(400).json({ error: 'Ingresa un nombre de hasta 60 caracteres y un tipo de hasta 30 caracteres.' });
+    }
+
+    if (!Number.isFinite(saldoInicial) || saldoInicial < 0) {
+      return res.status(400).json({ error: 'El saldo inicial debe ser un monto válido mayor o igual a cero.' });
+    }
+
+    if (tipo === 'DEBITO' && typeof req.body.linkedFinancialAccountId !== 'string') {
+      return res.status(400).json({ error: 'Selecciona una cuenta bancaria para vincular la tarjeta de débito.' });
     }
 
     const relacion = await prisma.accountUser.findFirst({
@@ -60,11 +70,43 @@ router.post('/financieras', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
     }
 
+    if (tipo === 'DEBITO') {
+      const bancoVinculado = await prisma.financialAccount.findFirst({
+        where: {
+          id: req.body.linkedFinancialAccountId,
+          householdAccountId: relacion.accountId,
+          type: 'BANCO'
+        }
+      });
+
+      if (!bancoVinculado) {
+        return res.status(400).json({ error: 'Vincula la tarjeta de débito a una cuenta bancaria válida.' });
+      }
+    }
+
     const cuenta = await prisma.financialAccount.create({
-      data: { name: nombre, type: tipo, householdAccountId: relacion.accountId }
+      data: {
+        name: nombre,
+        type: tipo,
+        initialBalance: tipo === 'DEBITO' ? 0 : saldoInicial,
+        ...(tipo === 'DEBITO' && { linkedFinancialAccountId: req.body.linkedFinancialAccountId }),
+        householdAccountId: relacion.accountId
+      }
     });
 
-    res.status(201).json({ exito: true, cuenta });
+    const saldoCuenta = tipo === 'DEBITO'
+      ? (await obtenerSaldosCuentasFinancieras(prisma, relacion.accountId)).cuentas.find((item) => item.id === cuenta.id)?.saldo || 0
+      : saldoInicial;
+    res.status(201).json({
+      exito: true,
+      cuenta: {
+        ...cuenta,
+        saldo: saldoCuenta,
+        deuda: tipo === 'CREDITO' ? saldoInicial : 0,
+        esCredito: tipo === 'CREDITO',
+        esDebitoVinculado: tipo === 'DEBITO'
+      }
+    });
   } catch (error) {
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Ya existe una cuenta con ese nombre.' });
@@ -75,13 +117,14 @@ router.post('/financieras', autenticarToken, async (req, res) => {
   }
 });
 
-router.put('/financieras/:id', autenticarToken, async (req, res) => {
+router.put('/financieras/:id/saldo', autenticarToken, async (req, res) => {
   try {
-    const nombre = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-    const tipo = typeof req.body.type === 'string' ? req.body.type.toUpperCase() : '';
+    const saldoActual = typeof req.body.saldoActual === 'number' || (
+      typeof req.body.saldoActual === 'string' && req.body.saldoActual.trim()
+    ) ? Number(req.body.saldoActual) : Number.NaN;
 
-    if (!nombre || nombre.length > 60 || !tiposCuentaFinanciera.includes(tipo)) {
-      return res.status(400).json({ error: 'Ingresa un nombre de hasta 60 caracteres y un tipo de cuenta válido.' });
+    if (!Number.isFinite(saldoActual) || saldoActual < 0) {
+      return res.status(400).json({ error: 'El saldo actual debe ser un monto válido mayor o igual a cero.' });
     }
 
     const relacion = await prisma.accountUser.findFirst({
@@ -90,75 +133,123 @@ router.put('/financieras/:id', autenticarToken, async (req, res) => {
 
     if (!relacion) {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
-    }
-
-    const resultado = await prisma.financialAccount.updateMany({
-      where: { id: req.params.id, householdAccountId: relacion.accountId },
-      data: { name: nombre, type: tipo }
-    });
-
-    if (resultado.count === 0) {
-      return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
-    }
-
-    const cuenta = await prisma.financialAccount.findUnique({ where: { id: req.params.id } });
-    res.json({ exito: true, cuenta });
-  } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'Ya existe una cuenta con ese nombre.' });
-    }
-
-    console.error('Error al actualizar cuenta financiera:', error);
-    res.status(500).json({ error: 'Error al actualizar la cuenta financiera.' });
-  }
-});
-
-router.delete('/financieras/:id', autenticarToken, async (req, res) => {
-  try {
-    const relacion = await prisma.accountUser.findFirst({
-      where: { userId: req.usuario.userId }
-    });
-
-    if (!relacion) {
-      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
-    }
-
-    const totalCuentas = await prisma.financialAccount.count({
-      where: { householdAccountId: relacion.accountId }
-    });
-
-    if (totalCuentas <= 1) {
-      return res.status(409).json({
-        error: 'Debes conservar al menos una cuenta. Crea otra antes de eliminar esta.'
-      });
     }
 
     const cuenta = await prisma.financialAccount.findFirst({
-      where: { id: req.params.id, householdAccountId: relacion.accountId },
-      include: { _count: { select: { transactions: true } } }
+      where: { id: req.params.id, householdAccountId: relacion.accountId }
     });
 
     if (!cuenta) {
       return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
     }
 
-    if (cuenta._count.transactions > 0) {
-      return res.status(409).json({
-        error: 'No puedes eliminar una cuenta que tiene movimientos. Elimina o reasigna sus movimientos primero.'
-      });
+    if (cuenta.type === 'DEBITO') {
+      return res.status(400).json({ error: 'Ajusta el saldo de la cuenta bancaria vinculada a esta tarjeta.' });
     }
 
-    await prisma.financialAccount.delete({ where: { id: cuenta.id } });
-    res.json({ exito: true, mensaje: 'Cuenta financiera eliminada correctamente.' });
+    const resumen = await obtenerSaldosCuentasFinancieras(prisma, relacion.accountId);
+    const saldoCalculado = resumen.cuentas.find((item) => item.id === cuenta.id)?.saldo || 0;
+    const cuentaActualizada = await prisma.financialAccount.update({
+      where: { id: cuenta.id },
+      data: { initialBalance: cuenta.initialBalance + saldoActual - saldoCalculado }
+    });
+
+    res.json({
+      exito: true,
+      cuenta: { ...cuentaActualizada, saldo: saldoActual, deuda: cuentaActualizada.type === 'CREDITO' ? saldoActual : 0 }
+    });
   } catch (error) {
-    if (error.code === 'P2003') {
-      return res.status(409).json({
-        error: 'No puedes eliminar una cuenta que tiene movimientos. Elimina o reasigna sus movimientos primero.'
-      });
+    console.error('Error al ajustar el saldo de la cuenta:', error);
+    res.status(500).json({ error: 'Error al ajustar el saldo de la cuenta.' });
+  }
+});
+
+router.post('/financieras/transferencias', autenticarToken, async (req, res) => {
+  try {
+    const { fromFinancialAccountId, toFinancialAccountId } = req.body;
+    const amount = typeof req.body.amount === 'number' || (
+      typeof req.body.amount === 'string' && req.body.amount.trim()
+    ) ? Number(req.body.amount) : Number.NaN;
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+
+    if (!Number.isFinite(amount) || amount <= 0 || !fromFinancialAccountId || !toFinancialAccountId) {
+      return res.status(400).json({ error: 'Selecciona las cuentas de origen y destino e ingresa un monto válido.' });
     }
 
-    console.error('Error al eliminar cuenta financiera:', error);
-    res.status(500).json({ error: 'Error al eliminar la cuenta financiera.' });
+    if (typeof fromFinancialAccountId !== 'string' || typeof toFinancialAccountId !== 'string') {
+      return res.status(400).json({ error: 'Las cuentas de origen y destino no son válidas.' });
+    }
+
+    if (description.length > 120) {
+      return res.status(400).json({ error: 'El detalle de la transferencia no puede exceder 120 caracteres.' });
+    }
+
+    if (fromFinancialAccountId === toFinancialAccountId) {
+      return res.status(400).json({ error: 'El origen y el destino deben ser cuentas diferentes.' });
+    }
+
+    const relacion = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+
+    if (!relacion) {
+      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
+    }
+
+    const cuentas = await prisma.financialAccount.findMany({
+      where: {
+        householdAccountId: relacion.accountId,
+        id: { in: [fromFinancialAccountId, toFinancialAccountId] }
+      }
+    });
+
+    if (cuentas.length !== 2) {
+      return res.status(400).json({ error: 'Selecciona cuentas válidas de tu hogar.' });
+    }
+
+    if (cuentas.some((cuenta) => cuenta.type === 'DEBITO')) {
+      return res.status(400).json({ error: 'Usa la cuenta bancaria vinculada para hacer transferencias de una tarjeta de débito.' });
+    }
+
+    const transferencia = await prisma.financialAccountTransfer.create({
+      data: {
+        amount,
+        description: description || null,
+        householdAccountId: relacion.accountId,
+        fromFinancialAccountId,
+        toFinancialAccountId
+      },
+      include: { fromFinancialAccount: true, toFinancialAccount: true }
+    });
+
+    res.status(201).json({ exito: true, transferencia });
+  } catch (error) {
+    console.error('Error al registrar transferencia:', error);
+    res.status(500).json({ error: 'Error al registrar la transferencia.' });
+  }
+});
+
+router.get('/financieras/transferencias', autenticarToken, async (req, res) => {
+  try {
+    const relacion = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+
+    if (!relacion) {
+      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
+    }
+
+    const transferencias = await prisma.financialAccountTransfer.findMany({
+      where: { householdAccountId: relacion.accountId },
+      include: { fromFinancialAccount: true, toFinancialAccount: true },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      take: 30
+    });
+
+    res.json({ exito: true, transferencias });
+  } catch (error) {
+    console.error('Error al consultar transferencias:', error);
+    res.status(500).json({ error: 'Error al consultar las transferencias.' });
   }
 });
 

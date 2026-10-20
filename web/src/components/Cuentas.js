@@ -1,104 +1,163 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  actualizarCuentaFinanciera,
+  ajustarSaldoCuentaFinanciera,
   crearCuentaFinanciera,
-  eliminarCuentaFinanciera,
-  obtenerCuentasFinancieras
+  crearTransferencia,
+  obtenerCuentasFinancieras,
+  obtenerTransferencias
 } from '../services/api';
 
-const tiposCuenta = [
-  { value: 'EFECTIVO', label: 'Efectivo', icon: '◉' },
-  { value: 'BANCO', label: 'Banco', icon: '▤' },
-  { value: 'TARJETA', label: 'Tarjeta', icon: '▣' }
-];
+const currency = (value) => new Intl.NumberFormat('es', {
+  style: 'currency',
+  currency: 'USD'
+}).format(Number(value) || 0);
 
-export default function Cuentas() {
+const etiquetasTipo = {
+  EFECTIVO: 'Efectivo',
+  BANCO: 'Cuenta bancaria',
+  DEBITO: 'Tarjeta de débito',
+  CREDITO: 'Tarjeta de crédito',
+  TARJETA: 'Tarjeta de débito'
+};
+
+export default function Cuentas({ onUpdated }) {
   const [cuentas, setCuentas] = useState([]);
-  const [nombre, setNombre] = useState('');
+  const [transferencias, setTransferencias] = useState([]);
+  const [totalDisponible, setTotalDisponible] = useState(0);
+  const [deudaTarjetas, setDeudaTarjetas] = useState(0);
   const [tipo, setTipo] = useState('EFECTIVO');
-  const [editandoId, setEditandoId] = useState(null);
+  const [tipoPersonalizado, setTipoPersonalizado] = useState('');
+  const [bancoVinculadoId, setBancoVinculadoId] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [saldoInicial, setSaldoInicial] = useState('0');
+  const [cuentaAjustando, setCuentaAjustando] = useState('');
+  const [saldoAjustado, setSaldoAjustado] = useState('');
+  const [origen, setOrigen] = useState('');
+  const [destino, setDestino] = useState('');
+  const [montoTransferencia, setMontoTransferencia] = useState('');
+  const [detalleTransferencia, setDetalleTransferencia] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [eliminandoId, setEliminandoId] = useState(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
-  const cargarCuentas = async () => {
+  const cargarDatos = useCallback(async () => {
     setCargando(true);
+    setError('');
     try {
-      const res = await obtenerCuentasFinancieras();
-      setCuentas(res.cuentas || []);
+      const [resumen, historial] = await Promise.all([
+        obtenerCuentasFinancieras(),
+        obtenerTransferencias()
+      ]);
+      setCuentas(resumen.cuentas || []);
+      setTotalDisponible(resumen.totalDisponible || 0);
+      setDeudaTarjetas(resumen.deudaTarjetas || 0);
+      setTransferencias(historial.transferencias || []);
+      setBancoVinculadoId((actual) => resumen.cuentas?.some((cuenta) => cuenta.id === actual && cuenta.type === 'BANCO')
+        ? actual
+        : resumen.cuentas?.find((cuenta) => cuenta.type === 'BANCO')?.id || '');
+      const cuentasTransferibles = (resumen.cuentas || []).filter((cuenta) => cuenta.type !== 'DEBITO');
+      setOrigen(cuentasTransferibles[0]?.id || '');
+      setDestino(cuentasTransferibles[1]?.id || '');
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudieron cargar las cuentas.');
     } finally {
       setCargando(false);
     }
-  };
-
-  useEffect(() => {
-    cargarCuentas();
   }, []);
 
-  const limpiarFormulario = () => {
-    setNombre('');
-    setTipo('EFECTIVO');
-    setEditandoId(null);
-  };
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]);
 
-  const handleGuardar = async (event) => {
+  const handleCrearCuenta = async (event) => {
     event.preventDefault();
     setError('');
     setMensaje('');
-    const nombreLimpio = nombre.trim();
-    if (!nombreLimpio) {
-      setError('Escribe un nombre para la cuenta.');
+    const tipoCuenta = tipo === 'OTRO' ? tipoPersonalizado.trim() : tipo;
+    if (!nombre.trim() || !tipoCuenta) {
+      setError('Ingresa el nombre y el tipo de la cuenta.');
+      return;
+    }
+    if (!Number.isFinite(Number(saldoInicial)) || Number(saldoInicial) < 0) {
+      setError('El saldo inicial debe ser un monto válido igual o mayor a cero.');
+      return;
+    }
+    if (tipo === 'DEBITO' && !bancoVinculadoId) {
+      setError('Añade o selecciona una cuenta bancaria para vincular la tarjeta de débito.');
       return;
     }
 
     setGuardando(true);
     try {
-      const datos = { name: nombreLimpio, type: tipo };
-      if (editandoId) {
-        await actualizarCuentaFinanciera(editandoId, datos);
-        setMensaje('Cuenta actualizada.');
-      } else {
-        await crearCuentaFinanciera(datos);
-        setMensaje('Cuenta creada.');
-      }
-      limpiarFormulario();
-      await cargarCuentas();
+      await crearCuentaFinanciera({
+        name: nombre.trim(),
+        type: tipoCuenta,
+        initialBalance: tipo === 'DEBITO' ? 0 : Number(saldoInicial),
+        ...(tipo === 'DEBITO' && { linkedFinancialAccountId: bancoVinculadoId })
+      });
+      setNombre('');
+      setSaldoInicial('0');
+      setTipoPersonalizado('');
+      setMensaje('Cuenta agregada. Ya puedes seleccionarla al registrar movimientos.');
+      await cargarDatos();
+      onUpdated?.();
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo guardar la cuenta.');
+      setError(err.response?.data?.error || 'No se pudo crear la cuenta.');
     } finally {
       setGuardando(false);
     }
   };
 
-  const handleEditar = (cuenta) => {
-    setNombre(cuenta.name);
-    setTipo(cuenta.type);
-    setEditandoId(cuenta.id);
+  const handleTransferencia = async (event) => {
+    event.preventDefault();
     setError('');
     setMensaje('');
-  };
-
-  const handleEliminar = async (cuenta) => {
-    if (!window.confirm(`¿Eliminar la cuenta “${cuenta.name}”? Los movimientos asociados deben eliminarse o reasignarse primero.`)) {
+    if (!origen || !destino || origen === destino || Number(montoTransferencia) <= 0) {
+      setError('Selecciona dos cuentas distintas e ingresa un monto mayor a cero.');
       return;
     }
 
+    setGuardando(true);
+    try {
+      await crearTransferencia({
+        fromFinancialAccountId: origen,
+        toFinancialAccountId: destino,
+        amount: Number(montoTransferencia),
+        description: detalleTransferencia.trim()
+      });
+      setMontoTransferencia('');
+      setDetalleTransferencia('');
+      setMensaje('Transferencia registrada; no se contó como ingreso ni como gasto.');
+      await cargarDatos();
+      onUpdated?.();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo registrar la transferencia.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleAjustarSaldo = async (event, cuenta) => {
+    event.preventDefault();
     setError('');
     setMensaje('');
-    setEliminandoId(cuenta.id);
+    if (!Number.isFinite(Number(saldoAjustado)) || Number(saldoAjustado) < 0) {
+      setError('El saldo actual debe ser un monto válido igual o mayor a cero.');
+      return;
+    }
+    setGuardando(true);
     try {
-      await eliminarCuentaFinanciera(cuenta.id);
-      setCuentas((actuales) => actuales.filter((item) => item.id !== cuenta.id));
-      if (editandoId === cuenta.id) limpiarFormulario();
-      setMensaje('Cuenta eliminada.');
+      await ajustarSaldoCuentaFinanciera(cuenta.id, Number(saldoAjustado));
+      setCuentaAjustando('');
+      setSaldoAjustado('');
+      setMensaje(`Saldo de ${cuenta.name} actualizado.`);
+      await cargarDatos();
+      onUpdated?.();
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo eliminar la cuenta.');
+      setError(err.response?.data?.error || 'No se pudo ajustar el saldo.');
     } finally {
-      setEliminandoId(null);
+      setGuardando(false);
     }
   };
 
@@ -107,100 +166,208 @@ export default function Cuentas() {
       <section className="categories-intro">
         <div>
           <span className="panel-kicker">ORGANIZA TU DINERO</span>
-          <h2>Tus cuentas</h2>
-          <p>Separa tus movimientos de efectivo, bancos y tarjetas.</p>
+          <h2>Lugares y cuentas</h2>
+          <p>Consulta cuánto tienes en cada lugar y registra los movimientos entre ellos.</p>
         </div>
-        <div className="movement-intro-icon">▣</div>
+        <div className="movement-intro-icon">▤</div>
       </section>
 
       {error && <div className="inline-error" role="alert">{error}</div>}
       {mensaje && <div className="inline-success" role="status">{mensaje}</div>}
 
-      <div className="financial-accounts-layout">
-        <section className="panel-card financial-account-form">
+      <section className="account-totals">
+        <article className="panel-card account-total-card">
+          <span className="panel-kicker">DINERO DISPONIBLE</span>
+          <strong>{currency(totalDisponible)}</strong>
+          <small>Todos los saldos disponibles; débito vinculado sin duplicar</small>
+        </article>
+        <article className="panel-card account-total-card account-debt-card">
+          <span className="panel-kicker">DEUDA EN TARJETAS</span>
+          <strong>{currency(deudaTarjetas)}</strong>
+          <small>Se muestra aparte, no como dinero disponible</small>
+        </article>
+      </section>
+
+      <section className="account-page-grid">
+        <article className="panel-card">
           <div className="panel-heading">
             <div>
-              <span className="panel-kicker">{editandoId ? 'EDITAR CUENTA' : 'NUEVA CUENTA'}</span>
-              <h2>{editandoId ? 'Actualiza sus detalles' : 'Agrega una cuenta'}</h2>
-            </div>
-          </div>
-
-          <form onSubmit={handleGuardar}>
-            <label htmlFor="financial-account-name">Nombre</label>
-            <input
-              id="financial-account-name"
-              className="form-text-input"
-              type="text"
-              maxLength={60}
-              placeholder="Ej. Efectivo, Banco principal..."
-              value={nombre}
-              onChange={(event) => setNombre(event.target.value)}
-              required
-            />
-
-            <label htmlFor="financial-account-type">Tipo</label>
-            <select
-              id="financial-account-type"
-              className="form-text-input"
-              value={tipo}
-              onChange={(event) => setTipo(event.target.value)}
-            >
-              {tiposCuenta.map((opcion) => (
-                <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
-              ))}
-            </select>
-
-            <button type="submit" className="button-primary" disabled={guardando}>
-              {guardando ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Crear cuenta'}
-            </button>
-            {editandoId && (
-              <button type="button" className="button-secondary account-cancel-button" onClick={limpiarFormulario} disabled={guardando}>
-                Cancelar edición
-              </button>
-            )}
-          </form>
-        </section>
-
-        <section className="panel-card financial-account-list">
-          <div className="panel-heading">
-            <div>
-              <span className="panel-kicker">CUENTAS FINANCIERAS</span>
-              <h2>{cuentas.length} {cuentas.length === 1 ? 'cuenta' : 'cuentas'}</h2>
+              <span className="panel-kicker">TUS SALDOS</span>
+              <h2>Lugares y cuentas</h2>
             </div>
           </div>
           {cargando ? (
             <div className="form-loading"><span className="loader" />Cargando cuentas...</div>
           ) : cuentas.length === 0 ? (
-            <div className="panel-empty"><span>▣</span><p>Aún no tienes cuentas. Crea una para comenzar.</p></div>
+            <div className="panel-empty"><span>＋</span><p>Añade tu primer lugar o cuenta.</p></div>
           ) : (
-            <div className="financial-account-items">
-              {cuentas.map((cuenta) => {
-                const tipoCuenta = tiposCuenta.find((item) => item.value === cuenta.type);
-                return (
-                  <article className="financial-account-item" key={cuenta.id}>
-                    <span className="financial-account-icon" aria-hidden="true">{tipoCuenta?.icon || '▣'}</span>
-                    <div className="financial-account-details">
-                      <strong>{cuenta.name}</strong>
-                      <small>{tipoCuenta?.label || cuenta.type}</small>
-                    </div>
-                    <div className="financial-account-actions">
-                      <button type="button" className="text-button" onClick={() => handleEditar(cuenta)}>Editar</button>
-                      <button
-                        type="button"
-                        className="text-button history-delete-button"
-                        onClick={() => handleEliminar(cuenta)}
-                        disabled={eliminandoId === cuenta.id}
-                      >
-                        {eliminandoId === cuenta.id ? 'Eliminando...' : 'Eliminar'}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="account-balance-list">
+              {cuentas.map((cuenta) => (
+                <div className="account-balance-item" key={cuenta.id}>
+                  <span className={`account-type-icon ${cuenta.esCredito ? 'is-credit' : ''}`} aria-hidden="true">
+                    {cuenta.type === 'EFECTIVO' ? '◉' : cuenta.type === 'CREDITO' ? '▣' : '▤'}
+                  </span>
+                  <span className="account-balance-info">
+                    <strong>{cuenta.name}</strong>
+                    <small>{cuenta.esDebitoVinculado ? `Tarjeta de débito · vinculada a ${cuenta.cuentaVinculada}` : etiquetasTipo[cuenta.type] || cuenta.type}</small>
+                  </span>
+                  <strong className={cuenta.esCredito ? 'amount-negative' : 'account-amount'}>
+                    {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
+                    {cuenta.esCredito && <small> deuda</small>}
+                  </strong>
+                  {cuenta.esDebitoVinculado ? (
+                    <small className="account-form-help">Saldo de la cuenta bancaria</small>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-button account-adjust-button"
+                      onClick={() => {
+                        setCuentaAjustando(cuenta.id);
+                        setSaldoAjustado(String(cuenta.esCredito ? cuenta.deuda : cuenta.saldo));
+                      }}
+                    >
+                      Ajustar
+                    </button>
+                  )}
+                  {cuentaAjustando === cuenta.id && (
+                    <form className="account-adjust-form" onSubmit={(event) => handleAjustarSaldo(event, cuenta)}>
+                      <label htmlFor={`account-balance-${cuenta.id}`}>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'}</label>
+                      <small className="account-form-help">Ajustar el saldo no modifica los movimientos anteriores.</small>
+                      <input
+                        id={`account-balance-${cuenta.id}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={saldoAjustado}
+                        onChange={(event) => setSaldoAjustado(event.target.value)}
+                        required
+                      />
+                      <button className="button-primary" type="submit" disabled={guardando}>Guardar saldo</button>
+                      <button className="text-button" type="button" onClick={() => setCuentaAjustando('')}>Cancelar</button>
+                    </form>
+                  )}
+                </div>
+              ))}
             </div>
           )}
-        </section>
-      </div>
+        </article>
+
+        <article className="panel-card account-form-card">
+          <div className="panel-heading">
+            <div>
+              <span className="panel-kicker">AÑADIR</span>
+              <h2>Nuevo lugar o cuenta</h2>
+            </div>
+          </div>
+          <form className="account-form" onSubmit={handleCrearCuenta}>
+            <label htmlFor="account-name">Nombre</label>
+            <input id="account-name" value={nombre} maxLength={60} onChange={(event) => setNombre(event.target.value)} placeholder="Ej. Banco principal" required />
+            <label htmlFor="account-type">Tipo</label>
+            <select id="account-type" value={tipo} onChange={(event) => setTipo(event.target.value)}>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="BANCO">Cuenta bancaria</option>
+              <option value="DEBITO">Tarjeta de débito</option>
+              <option value="CREDITO">Tarjeta de crédito</option>
+              <option value="OTRO">Otro tipo</option>
+            </select>
+            {tipo === 'OTRO' && (
+              <>
+                <label htmlFor="account-custom-type">Tipo personalizado</label>
+                <input id="account-custom-type" value={tipoPersonalizado} maxLength={30} onChange={(event) => setTipoPersonalizado(event.target.value)} placeholder="Ej. Billetera digital" required />
+              </>
+            )}
+            {tipo === 'DEBITO' ? (
+              cuentas.some((cuenta) => cuenta.type === 'BANCO') ? (
+                <>
+                  <label htmlFor="linked-bank-account">Cuenta bancaria vinculada</label>
+                  <select id="linked-bank-account" value={bancoVinculadoId} onChange={(event) => setBancoVinculadoId(event.target.value)} required>
+                    {cuentas.filter((cuenta) => cuenta.type === 'BANCO').map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+                  </select>
+                  <small className="account-form-help">La tarjeta usa el saldo del banco y no se suma dos veces.</small>
+                </>
+              ) : <small className="account-form-help">Primero añade una cuenta bancaria para vincular esta tarjeta.</small>
+            ) : (
+              <>
+                <label htmlFor="account-initial-balance">{tipo === 'CREDITO' ? 'Deuda actual al añadirla' : 'Saldo actual al añadirla'}</label>
+                <input id="account-initial-balance" type="number" min="0" step="0.01" value={saldoInicial} onChange={(event) => setSaldoInicial(event.target.value)} required />
+                <small className="account-form-help">
+                  {tipo === 'CREDITO'
+                    ? 'Escribe lo que ya debes en la tarjeta. Las compras aumentarán la deuda y los pagos la reducirán.'
+                    : 'Escribe el saldo que ya tienes. Los próximos ingresos y gastos actualizarán este total.'}
+                </small>
+              </>
+            )}
+            <button className="button-primary" type="submit" disabled={guardando || (tipo === 'DEBITO' && !bancoVinculadoId)}>
+              {guardando ? 'Guardando...' : 'Añadir cuenta'}
+            </button>
+          </form>
+        </article>
+
+        <article className="panel-card account-form-card">
+          <div className="panel-heading">
+            <div>
+              <span className="panel-kicker">MOVER DINERO</span>
+              <h2>Transferencia entre cuentas</h2>
+            </div>
+          </div>
+          {cuentas.filter((cuenta) => cuenta.type !== 'DEBITO').length < 2 ? (
+            <p className="account-form-help">Añade por lo menos dos cuentas para registrar una transferencia.</p>
+          ) : (
+            <form className="account-form" onSubmit={handleTransferencia}>
+              <label htmlFor="transfer-from">Desde</label>
+              <select
+                id="transfer-from"
+                value={origen}
+                onChange={(event) => {
+                  const nuevoOrigen = event.target.value;
+                  setOrigen(nuevoOrigen);
+                  if (nuevoOrigen === destino) {
+                    setDestino(cuentas.find((cuenta) => cuenta.id !== nuevoOrigen && cuenta.type !== 'DEBITO')?.id || '');
+                  }
+                }}
+                required
+              >
+                {cuentas.filter((cuenta) => cuenta.type !== 'DEBITO').map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+              </select>
+              <label htmlFor="transfer-to">Hacia</label>
+              <select id="transfer-to" value={destino} onChange={(event) => setDestino(event.target.value)} required>
+                {cuentas.filter((cuenta) => cuenta.id !== origen && cuenta.type !== 'DEBITO').map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+              </select>
+              <label htmlFor="transfer-amount">Monto</label>
+              <input id="transfer-amount" type="number" min="0.01" step="0.01" value={montoTransferencia} onChange={(event) => setMontoTransferencia(event.target.value)} required />
+              <label htmlFor="transfer-description">Detalle (opcional)</label>
+              <input id="transfer-description" maxLength={120} value={detalleTransferencia} onChange={(event) => setDetalleTransferencia(event.target.value)} placeholder="Ej. Retiro de efectivo" />
+              <small className="account-form-help">La transferencia actualiza ambos saldos, sin alterar ingresos o gastos.</small>
+              <button className="button-primary" type="submit" disabled={guardando}>{guardando ? 'Guardando...' : 'Registrar transferencia'}</button>
+            </form>
+          )}
+        </article>
+
+        <article className="panel-card">
+          <div className="panel-heading">
+            <div>
+              <span className="panel-kicker">ACTIVIDAD</span>
+              <h2>Transferencias recientes</h2>
+            </div>
+          </div>
+          {transferencias.length === 0 ? (
+            <div className="panel-empty"><span>↔</span><p>Aún no hay transferencias.</p></div>
+          ) : (
+            <div className="account-balance-list">
+              {transferencias.map((transferencia) => (
+                <div className="account-balance-item" key={transferencia.id}>
+                  <span className="account-type-icon" aria-hidden="true">↔</span>
+                  <span className="account-balance-info">
+                    <strong>{transferencia.fromFinancialAccount.name} → {transferencia.toFinancialAccount.name}</strong>
+                    <small>{transferencia.description || new Date(transferencia.date).toLocaleDateString()}</small>
+                  </span>
+                  <strong className="account-amount">{currency(transferencia.amount)}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      </section>
     </div>
   );
 }

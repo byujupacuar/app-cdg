@@ -55,11 +55,10 @@ export default function Registro({ onGuardado, onNavigate }) {
       try {
         const res = await obtenerCuentasFinancieras();
         if (activo) {
-          const listaCuentas = res.cuentas || [];
-          setCuentas(listaCuentas);
-          setCuentaFinancieraId((actual) =>
-            listaCuentas.some((cuenta) => cuenta.id === actual) ? actual : listaCuentas[0]?.id || ''
-          );
+          setCuentas(res.cuentas || []);
+          setCuentaFinancieraId((actual) => res.cuentas?.some((cuenta) => cuenta.id === actual)
+            ? actual
+            : res.cuentas?.[0]?.id || '');
         }
       } catch (err) {
         if (activo) setError(err.response?.data?.error || 'No se pudieron cargar las cuentas.');
@@ -70,12 +69,6 @@ export default function Registro({ onGuardado, onNavigate }) {
     cargarMovimientos(() => activo);
     return () => { activo = false; };
   }, []);
-
-  useEffect(() => {
-    if (!cuentas.some((cuenta) => cuenta.id === cuentaFinancieraId)) {
-      setCuentaFinancieraId(cuentas[0]?.id || '');
-    }
-  }, [cuentas, cuentaFinancieraId]);
 
   const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
 
@@ -99,10 +92,9 @@ export default function Registro({ onGuardado, onNavigate }) {
       return;
     }
     if (!cuentaFinancieraId) {
-      setError('Crea primero una cuenta para registrar el movimiento.');
+      setError('Añade una cuenta antes de registrar un movimiento.');
       return;
     }
-
     setGuardando(true);
     try {
       const datosMovimiento = {
@@ -140,7 +132,7 @@ export default function Registro({ onGuardado, onNavigate }) {
     setMonto(String(movimiento.amount));
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
     setCategoriaSel(movimiento.category?.name || '');
-    setCuentaFinancieraId(movimiento.financialAccountId || movimiento.financialAccount?.id || '');
+    setCuentaFinancieraId(movimiento.financialAccountId || '');
     setError('');
     setMensaje('');
     document.getElementById('movement-amount')?.focus();
@@ -227,7 +219,7 @@ export default function Registro({ onGuardado, onNavigate }) {
             </div>
 
             <div className="form-label-row">
-              <label htmlFor="movement-account">Cuenta</label>
+              <label htmlFor="movement-account">Lugar o cuenta</label>
               <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
                 Administrar <span aria-hidden="true">→</span>
               </button>
@@ -242,15 +234,15 @@ export default function Registro({ onGuardado, onNavigate }) {
               >
                 {cuentas.map((cuenta) => (
                   <option key={cuenta.id} value={cuenta.id}>
-                    {cuenta.name} · {cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Banco' : 'Tarjeta'}
+                    {cuenta.name} · {cuenta.type === 'CREDITO' ? 'Deuda' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Banco' : cuenta.type === 'DEBITO' ? 'Débito' : cuenta.type}
                   </option>
                 ))}
               </select>
             ) : (
               <div className="no-categories">
-                <p>No tienes cuentas financieras disponibles.</p>
+                <p>No hay lugares o cuentas disponibles.</p>
                 <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
-                  Crear cuenta <span aria-hidden="true">→</span>
+                  Añadir cuenta <span aria-hidden="true">→</span>
                 </button>
               </div>
             )}
@@ -299,7 +291,7 @@ export default function Registro({ onGuardado, onNavigate }) {
               onChange={(event) => setDescripcion(event.target.value)}
             />
 
-            <button type="submit" className="button-primary form-submit" disabled={guardando || cargando}>
+            <button type="submit" className="button-primary form-submit" disabled={guardando || cargando || !cuentas.length}>
               {guardando
                 ? <><span className="button-spinner" /> Guardando...</>
                 : <><span aria-hidden="true">{editandoId ? '✓' : '＋'}</span> {editandoId ? 'Guardar cambios' : 'Guardar movimiento'}</>}
@@ -342,7 +334,7 @@ export default function Registro({ onGuardado, onNavigate }) {
                 <div className="transaction-history-details">
                   <strong>{movimiento.category?.name || 'General'}</strong>
                   <span>{movimiento.description || 'Sin detalle'}</span>
-                  <small>{movimiento.financialAccount?.name || 'Sin cuenta'}</small>
+                  {movimiento.financialAccount?.name && <small>{movimiento.financialAccount.name}</small>}
                   <small>{movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}</small>
                 </div>
                 <div className="transaction-history-actions">

@@ -23,12 +23,6 @@ enum TransactionType {
   PRESTAMO
 }
 
-enum FinancialAccountType {
-  EFECTIVO
-  BANCO
-  TARJETA
-}
-
 enum LoanType {
   OTORGADO // Te deben
   RECIBIDO // Debes
@@ -48,29 +42,55 @@ model User {
 }
 
 model Account {
-  id                String             @id @default(uuid())
-  name              String
-  type              AccountType        @default(INDIVIDUAL)
-  users             AccountUser[]
-  transactions      Transaction[]
-  financialAccounts FinancialAccount[]
-  budgets           Budget[]
-  loans             Loan[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                        String                     @id @default(uuid())
+  name                      String
+  type                      AccountType                @default(INDIVIDUAL)
+  users                     AccountUser[]
+  transactions              Transaction[]
+  financialAccounts         FinancialAccount[]
+  financialAccountTransfers FinancialAccountTransfer[]
+  budgets                   Budget[]
+  loans                     Loan[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
 }
 
 model FinancialAccount {
-  id                 String               @id @default(uuid())
-  name               String
-  type               FinancialAccountType @default(EFECTIVO)
-  householdAccountId String
-  householdAccount   Account              @relation(fields: [householdAccountId], references: [id], onDelete: Cascade)
-  transactions       Transaction[]
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id                       String                     @id @default(uuid())
+  name                     String
+  type                     String                     @default("EFECTIVO")
+  initialBalance           Float                      @default(0)
+  householdAccountId       String
+  householdAccount         Account                    @relation(fields: [householdAccountId], references: [id], onDelete: Cascade)
+  transactions             Transaction[]
+  outgoingTransfers        FinancialAccountTransfer[] @relation("TransferFrom")
+  incomingTransfers        FinancialAccountTransfer[] @relation("TransferTo")
+  linkedFinancialAccountId String?
+  linkedFinancialAccount   FinancialAccount?          @relation("LinkedDebitCard", fields: [linkedFinancialAccountId], references: [id], onDelete: Restrict)
+  linkedDebitCards         FinancialAccount[]         @relation("LinkedDebitCard")
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
 
   @@unique([householdAccountId, name])
+  @@index([linkedFinancialAccountId])
+}
+
+model FinancialAccountTransfer {
+  id                     String           @id @default(uuid())
+  amount                 Float
+  description            String?
+  date                   DateTime         @default(now())
+  householdAccountId     String
+  fromFinancialAccountId String
+  toFinancialAccountId   String
+  householdAccount       Account          @relation(fields: [householdAccountId], references: [id], onDelete: Cascade)
+  fromFinancialAccount   FinancialAccount @relation("TransferFrom", fields: [fromFinancialAccountId], references: [id], onDelete: Restrict)
+  toFinancialAccount     FinancialAccount @relation("TransferTo", fields: [toFinancialAccountId], references: [id], onDelete: Restrict)
+  createdAt              DateTime         @default(now())
+
+  @@index([householdAccountId, date])
+  @@index([fromFinancialAccountId])
+  @@index([toFinancialAccountId])
 }
 
 model AccountUser {
@@ -94,20 +114,20 @@ model Category {
 }
 
 model Transaction {
-  id                 String           @id @default(uuid())
+  id                 String            @id @default(uuid())
   amount             Float
   type               TransactionType
   description        String?
-  date               DateTime         @default(now())
+  date               DateTime          @default(now())
   accountId          String
-  financialAccountId String
+  financialAccountId String?
   userId             String
   categoryId         String
-  account            Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  financialAccount   FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
-  user               User             @relation(fields: [userId], references: [id])
-  category           Category         @relation(fields: [categoryId], references: [id])
-  createdAt          DateTime         @default(now())
+  account            Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  financialAccount   FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  user               User              @relation(fields: [userId], references: [id])
+  category           Category          @relation(fields: [categoryId], references: [id])
+  createdAt          DateTime          @default(now())
 }
 
 model Budget {

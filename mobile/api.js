@@ -254,7 +254,7 @@ export const obtenerCuentasFinancieras = async (token) => {
     const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    return { exito: true, cuentas: respuesta.data.cuentas };
+    return { exito: true, ...respuesta.data };
   } catch (error) {
     console.error("Error al consultar cuentas financieras:", error.response?.data || error.message);
     return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar las cuentas." };
@@ -275,9 +275,9 @@ export const crearCuentaFinanciera = async (datos, token) => {
   }
 };
 
-export const actualizarCuentaFinanciera = async (id, datos, token) => {
+export const ajustarSaldoCuentaFinanciera = async (id, saldoActual, token) => {
   try {
-    const respuesta = await axios.put(`${API_URL}/api/cuentas/financieras/${id}`, datos, {
+    const respuesta = await axios.put(`${API_URL}/api/cuentas/financieras/${id}/saldo`, { saldoActual }, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
@@ -285,18 +285,33 @@ export const actualizarCuentaFinanciera = async (id, datos, token) => {
     });
     return { exito: true, cuenta: respuesta.data.cuenta };
   } catch (error) {
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudo actualizar la cuenta." };
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo ajustar el saldo." };
   }
 };
 
-export const eliminarCuentaFinanciera = async (id, token) => {
+export const obtenerTransferencias = async (token) => {
   try {
-    const respuesta = await axios.delete(`${API_URL}/api/cuentas/financieras/${id}`, {
+    const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras/transferencias`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    return { exito: true, mensaje: respuesta.data.mensaje };
+    return { exito: true, transferencias: respuesta.data.transferencias };
   } catch (error) {
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudo eliminar la cuenta." };
+    console.error("Error al consultar transferencias:", error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar las transferencias." };
+  }
+};
+
+export const crearTransferencia = async (datos, token) => {
+  try {
+    const respuesta = await axios.post(`${API_URL}/api/cuentas/financieras/transferencias`, datos, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, transferencia: respuesta.data.transferencia };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo registrar la transferencia." };
   }
 };
 

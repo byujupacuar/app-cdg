@@ -14,7 +14,7 @@ import {
 } from '../api';
 import { colors } from '../theme';
 
-export default function RegistroScreen({ token, navigation }) {
+export default function RegistroScreen({ token }) {
   const scrollRef = useRef(null);
   const [tipo, setTipo] = useState('GASTO'); // 'GASTO' | 'INGRESO'
   const [monto, setMonto] = useState('');
@@ -73,11 +73,11 @@ export default function RegistroScreen({ token, navigation }) {
         const res = await obtenerCuentasFinancieras(token);
         if (!activa) return;
         if (res.exito) {
-          setCuentas(res.cuentas);
-          setCuentaFinancieraId(actual =>
-            res.cuentas.some(cuenta => cuenta.id === actual)
+          setCuentas(res.cuentas || []);
+          setCuentaFinancieraId((actual) =>
+            res.cuentas?.some((cuenta) => cuenta.id === actual)
               ? actual
-              : res.cuentas[0]?.id || null
+              : res.cuentas?.[0]?.id || null
           );
         } else {
           Alert.alert("Error", res.mensaje || "No se pudieron cargar las cuentas.");
@@ -105,7 +105,7 @@ export default function RegistroScreen({ token, navigation }) {
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
     setTipo(movimiento.type);
     setCategoriaSeleccionada(movimiento.category?.name || null);
-    setCuentaFinancieraId(movimiento.financialAccountId || movimiento.financialAccount?.id || null);
+    setCuentaFinancieraId(movimiento.financialAccountId || null);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
@@ -120,10 +120,9 @@ export default function RegistroScreen({ token, navigation }) {
       return;
     }
     if (!cuentaFinancieraId) {
-      Alert.alert("Selecciona una cuenta", "Crea o selecciona una cuenta antes de registrar el movimiento.");
+      Alert.alert("Selecciona una cuenta", "Añade una cuenta antes de registrar el movimiento.");
       return;
     }
-
     setGuardando(true);
 
     const datosMovimiento = {
@@ -223,14 +222,14 @@ export default function RegistroScreen({ token, navigation }) {
       />
 
       <View style={styles.etiquetaCuenta}>
-        <Text style={styles.label}>Cuenta</Text>
+        <Text style={styles.label}>Lugar o cuenta</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
-          <Text style={styles.linkCuenta}>Administrar</Text>
+          <Text style={styles.linkCuenta}>Añadir</Text>
         </TouchableOpacity>
       </View>
       {cuentas.length === 0 ? (
         <TouchableOpacity style={styles.vacioBox} onPress={() => navigation.navigate('Cuentas')}>
-          <Text style={styles.vacioTxt}>No hay cuentas disponibles. Toca aquí para crear una.</Text>
+          <Text style={styles.vacioTxt}>Añade un lugar para registrar de dónde viene o a dónde va el dinero.</Text>
         </TouchableOpacity>
       ) : (
         <ScrollView
@@ -240,16 +239,16 @@ export default function RegistroScreen({ token, navigation }) {
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {cuentas.map(cuenta => (
+          {cuentas.map((cuenta) => (
             <TouchableOpacity
               key={cuenta.id}
               style={[styles.catCard, cuentaFinancieraId === cuenta.id && styles.catCardSeleccionada]}
               onPress={() => setCuentaFinancieraId(cuenta.id)}
             >
-              <Text style={styles.catIcon}>
-                {cuenta.type === 'EFECTIVO' ? '◉' : cuenta.type === 'BANCO' ? '▤' : '▣'}
-              </Text>
               <Text style={[styles.catName, cuentaFinancieraId === cuenta.id && styles.txtBlanco]}>{cuenta.name}</Text>
+              <Text style={[styles.tipoCuenta, cuentaFinancieraId === cuenta.id && styles.txtBlanco]}>
+                {cuenta.type === 'CREDITO' ? 'Crédito' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Banco' : cuenta.type === 'DEBITO' ? 'Débito' : cuenta.type}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -334,7 +333,8 @@ export default function RegistroScreen({ token, navigation }) {
                   {movimiento.description || 'Sin detalle'}
                 </Text>
                 <Text style={styles.movimientoFecha}>
-                  {movimiento.financialAccount?.name || 'Sin cuenta'} · {movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}
+                  {movimiento.financialAccount?.name ? `${movimiento.financialAccount.name} · ` : ''}
+                  {movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}
                 </Text>
               </View>
               <View style={styles.movimientoAcciones}>
@@ -387,9 +387,10 @@ const styles = StyleSheet.create({
   txtTipo: { fontSize: 13, fontWeight: '700', color: colors.muted },
   txtActivo: { color: colors.green800 },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 7, marginTop: 10 },
-  labelOptional: { color: '#9aa69f', fontWeight: '400' },
-  etiquetaCuenta: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  etiquetaCuenta: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   linkCuenta: { color: colors.green800, fontSize: 11, fontWeight: '700', marginBottom: 7 },
+  tipoCuenta: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  labelOptional: { color: '#9aa69f', fontWeight: '400' },
   inputMonto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 23, fontWeight: '700', color: colors.green950 },
   categoriasScroll: { flexGrow: 0, marginVertical: 3 },
   categoriasRow: { paddingVertical: 4 },

@@ -23,8 +23,19 @@ npm run dev
 ```
 
 La API queda disponible por defecto en `http://localhost:3000`.
-En producción, aplica las migraciones pendientes con `npx prisma migrate deploy`
-antes de iniciar la API.
+`npm start` aplica las migraciones pendientes con `prisma migrate deploy` antes
+de iniciar la API.
+
+En Render, configura el directorio raíz del servicio como `backend`, el comando
+de compilación como `npm install` y el comando de inicio como `npm start`.
+No uses `node index.js` como comando de inicio: omite las migraciones y puede
+dejar el esquema de PostgreSQL desactualizado respecto del cliente Prisma.
+
+La sección **Cuentas** permite añadir efectivo, cuentas bancarias, tarjetas de
+débito vinculadas a un banco, tarjetas de crédito y tipos personalizados. Los
+saldos iniciales pueden ajustarse; las transferencias actualizan ambos lados
+sin contarse como ingresos o gastos. La deuda de tarjetas de crédito se muestra
+separada del dinero disponible.
 
 ## Web
 

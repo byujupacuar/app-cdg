@@ -13,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { obtenerDashboardReal } from '../api';
 import { colors } from '../theme';
 
-export default function DashboardScreen({ token, onLogout }) {
+export default function DashboardScreen({ token, onLogout, navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [datos, setDatos] = useState(null);
@@ -60,6 +60,8 @@ export default function DashboardScreen({ token, onLogout }) {
   const balanceTotal = datos?.resumen?.balanceTotal ?? 0;
   const gastosPorCategoria = datos?.gastosPorCategoria ?? [];
   const ultimosMovimientos = datos?.ultimosMovimientos ?? [];
+  const resumenCuentas = datos?.resumenCuentas ?? {};
+  const cuentasFinancieras = resumenCuentas.cuentas ?? [];
 
   if (loading && !refreshing) {
     return (
@@ -124,6 +126,41 @@ export default function DashboardScreen({ token, onLogout }) {
             <Text style={styles.resumenValorGasto}>-${totalGastos.toFixed(2)}</Text>
           </View>
         </View>
+      </View>
+
+      <View style={styles.sectionCard}>
+        <View style={styles.cuentasHeader}>
+          <Text style={styles.sectionTitle}>Dónde está tu dinero</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
+            <Text style={styles.cuentasLink}>Administrar</Text>
+          </TouchableOpacity>
+        </View>
+        {cuentasFinancieras.length === 0 ? (
+          <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
+            <Text style={styles.vacioTexto}>Añade efectivo, bancos u otros lugares.</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            {cuentasFinancieras.map((cuenta) => (
+              <View style={styles.cuentaSaldoFila} key={cuenta.id}>
+                <View style={styles.cuentaSaldoInfo}>
+                  <Text style={styles.cuentaSaldoNombre}>{cuenta.name}</Text>
+                  <Text style={styles.cuentaSaldoTipo}>
+                    {cuenta.esDebitoVinculado ? `Débito · ${cuenta.cuentaVinculada}` : cuenta.type === 'CREDITO' ? 'Tarjeta de crédito' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Cuenta bancaria' : cuenta.type === 'DEBITO' ? 'Tarjeta de débito' : cuenta.type}
+                  </Text>
+                </View>
+                <Text style={[styles.cuentaSaldoMonto, cuenta.esCredito && styles.cuentaDeuda]}>
+                  {`$${Number(cuenta.esCredito ? cuenta.deuda : cuenta.saldo).toFixed(2)}${cuenta.esCredito ? ' deuda' : ''}`}
+                </Text>
+              </View>
+            ))}
+            <View style={styles.cuentaTotales}>
+              <Text style={styles.cuentaTotalTexto}>Disponible: ${Number(resumenCuentas.totalDisponible || 0).toFixed(2)}</Text>
+              <Text style={[styles.cuentaTotalTexto, styles.cuentaDeuda]}>Deuda: ${Number(resumenCuentas.deudaTarjetas || 0).toFixed(2)}</Text>
+              <Text style={styles.cuentaTotalTexto}>Neto: ${Number(resumenCuentas.patrimonioNeto || 0).toFixed(2)}</Text>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Evolución del Período */}
@@ -197,7 +234,7 @@ export default function DashboardScreen({ token, onLogout }) {
               <View style={styles.movDetalle}>
                 <Text style={styles.movCat}>{m.category?.name || 'General'}</Text>
                 <Text style={styles.movDesc}>{m.description || 'Sin detalle'}</Text>
-                <Text style={styles.movDesc}>{m.financialAccount?.name || 'Sin cuenta'}</Text>
+                {m.financialAccount?.name && <Text style={styles.movDesc}>{m.financialAccount.name}</Text>}
               </View>
               <Text style={[styles.movMonto, { color: m.type === 'INGRESO' ? colors.green700 : colors.red }]}>
                 {m.type === 'INGRESO' ? '+' : '-'}${(m.amount ?? 0).toFixed(2)}
@@ -232,6 +269,16 @@ const styles = StyleSheet.create({
   dividerVertical: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
   sectionCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 15, padding: 17, marginBottom: 14, elevation: 0 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.green950, marginBottom: 14 },
+  cuentasHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  cuentasLink: { color: colors.green800, fontSize: 10, fontWeight: '700', marginBottom: 12 },
+  cuentaSaldoFila: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9 },
+  cuentaSaldoInfo: { flex: 1, marginRight: 10 },
+  cuentaSaldoNombre: { color: colors.ink, fontSize: 12, fontWeight: '700' },
+  cuentaSaldoTipo: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  cuentaSaldoMonto: { color: colors.green800, fontSize: 12, fontWeight: '700' },
+  cuentaDeuda: { color: colors.red },
+  cuentaTotales: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 11 },
+  cuentaTotalTexto: { color: colors.green800, fontSize: 10, fontWeight: '600' },
   barChartContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', height: 120, paddingVertical: 10 },
   barCol: { alignItems: 'center', width: '35%' },
   barTrack: { height: 90, width: 24, backgroundColor: '#edf1ed', borderRadius: 12, justifyContent: 'flex-end', overflow: 'hidden' },

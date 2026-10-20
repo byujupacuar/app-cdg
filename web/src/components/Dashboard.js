@@ -53,6 +53,8 @@ export default function Dashboard({ refreshKey, onNavigate }) {
   const gastos = Number(resumen.totalGastos) || 0;
   const gastosPorCategoria = datos?.gastosPorCategoria || [];
   const movimientos = datos?.ultimosMovimientos || [];
+  const resumenCuentas = datos?.resumenCuentas || {};
+  const cuentas = resumenCuentas.cuentas || [];
 
   return (
     <div className="dashboard-page">
@@ -93,6 +95,44 @@ export default function Dashboard({ refreshKey, onNavigate }) {
           <strong className="amount-negative">{currency(gastos)}</strong>
           <span className="summary-footnote">Salidas registradas este mes</span>
         </article>
+      </section>
+
+      <section className="panel-card account-overview">
+        <div className="panel-heading">
+          <div>
+            <span className="panel-kicker">DÓNDE ESTÁ TU DINERO</span>
+            <h2>Disponible por cuenta</h2>
+          </div>
+          <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
+            Administrar <span aria-hidden="true">→</span>
+          </button>
+        </div>
+        {cuentas.length === 0 ? (
+          <div className="panel-empty">
+            <span>＋</span>
+            <p>Añade efectivo, cuentas bancarias u otros lugares.</p>
+            <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>Añadir una cuenta →</button>
+          </div>
+        ) : (
+          <>
+            <div className="account-overview-list">
+              {cuentas.map((cuenta) => (
+                <div className="account-overview-item" key={cuenta.id}>
+                  <span><strong>{cuenta.name}</strong>                  <small>{cuenta.esDebitoVinculado ? `Débito · ${cuenta.cuentaVinculada}` : cuenta.type === 'CREDITO' ? 'Tarjeta de crédito' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Cuenta bancaria' : cuenta.type === 'DEBITO' ? 'Tarjeta de débito' : cuenta.type}</small></span>
+                  <strong className={cuenta.esCredito ? 'amount-negative' : 'account-amount'}>
+                    {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
+                    {cuenta.esCredito && <small> deuda</small>}
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <div className="account-overview-totals">
+              <span>Disponible: <strong>{currency(resumenCuentas.totalDisponible)}</strong></span>
+              <span>Deuda de tarjetas: <strong className="amount-negative">{currency(resumenCuentas.deudaTarjetas)}</strong></span>
+              <span>Patrimonio neto: <strong>{currency(resumenCuentas.patrimonioNeto)}</strong></span>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="dashboard-grid">
@@ -160,7 +200,7 @@ export default function Dashboard({ refreshKey, onNavigate }) {
                     <span className="recent-description">
                       <strong>{movimiento.category?.name || 'General'}</strong>
                       <small>{movimiento.description || 'Sin detalle'}</small>
-                      <small>{movimiento.financialAccount?.name || 'Sin cuenta'}</small>
+                      {movimiento.financialAccount?.name && <small>{movimiento.financialAccount.name}</small>}
                     </span>
                     <strong className={gasto ? 'amount-negative' : 'amount-positive'}>
                       {gasto ? '−' : '+'}{currency(movimiento.amount)}

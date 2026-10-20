@@ -107,7 +107,7 @@ function App() {
             <Prestamos />
           )}
           {seccion === 'cuentas' && (
-            <Cuentas />
+            <Cuentas onUpdated={actualizarResumen} />
           )}
         </div>
       </main>
