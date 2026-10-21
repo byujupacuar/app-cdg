@@ -30,7 +30,7 @@ export default function AuthScreen({ onLoginSuccess }) {
       const res = await registrarUsuario({ name, email, password });
       if (res.exito) {
         Alert.alert("¡Bienvenido a Nivia!", "Registro completado con éxito.");
-        onLoginSuccess(res.token, res.usuario);
+        await onLoginSuccess(res.token, res.usuario);
       } else {
         Alert.alert("Error de Registro", res.mensaje);
       }
@@ -38,7 +38,7 @@ export default function AuthScreen({ onLoginSuccess }) {
       const res = await iniciarSesion({ email, password });
       if (res.exito) {
         Alert.alert("¡Bienvenido!", `Sesión iniciada como ${res.usuario.email}`);
-        onLoginSuccess(res.token, res.usuario);
+        await onLoginSuccess(res.token, res.usuario);
       } else {
         Alert.alert("Error al ingresar", res.mensaje);
       }
@@ -55,7 +55,7 @@ export default function AuthScreen({ onLoginSuccess }) {
       const res = await loginConGoogleApi(idTokenDeGoogle);
       if (res.exito) {
         Alert.alert("¡Bienvenido a Nivia!", `Iniciaste sesión con Google como ${res.usuario.email}`);
-        onLoginSuccess(res.token, res.usuario);
+        await onLoginSuccess(res.token, res.usuario);
       } else {
         Alert.alert("Error de autenticación", res.mensaje);
       }

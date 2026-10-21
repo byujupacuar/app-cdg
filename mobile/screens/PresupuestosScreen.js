@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -26,10 +26,9 @@ export default function PresupuestosScreen({ token }) {
   // Formulario de Presupuesto
   const [categoryId, setCategoryId] = useState(null);
   const [limitAmount, setLimitAmount] = useState('');
-  const [period, setPeriod] = useState('MENSUAL');
+  const [period] = useState('MENSUAL');
 
-  const cargarPresupuestos = async () => {
-    setLoading(true);
+  const cargarPresupuestos = useCallback(async () => {
     const res = await obtenerPresupuestos(token);
     if (res.exito) {
       setPresupuestos(res.presupuestos);
@@ -38,11 +37,11 @@ export default function PresupuestosScreen({ token }) {
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [token]);
 
   useEffect(() => {
-    cargarPresupuestos();
-  }, [token]);
+    Promise.resolve().then(cargarPresupuestos);
+  }, [cargarPresupuestos]);
 
   const abrirModalPresupuesto = async () => {
     setModalVisible(true);
@@ -116,14 +115,14 @@ export default function PresupuestosScreen({ token }) {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.titulo}>Presupuestos Semafóricos</Text>
-          <Text style={styles.subtitulo}>Límites de consumo mensual activo</Text>
+          <Text style={styles.titulo}>Presupuestos</Text>
+          <Text style={styles.subtitulo}>Controla tus límites de gasto</Text>
         </View>
 
         {presupuestos.length === 0 ? (
           <View style={styles.vacioCard}>
             <Text style={styles.vacioTexto}>No has configurado límites de gasto.</Text>
-            <Text style={styles.vacioSubtexto}>Toca el botón "+" para crear tu primer presupuesto.</Text>
+            <Text style={styles.vacioSubtexto}>Toca el botón + para crear tu primer presupuesto.</Text>
           </View>
         ) : (
           presupuestos.map((item) => {
@@ -141,7 +140,7 @@ export default function PresupuestosScreen({ token }) {
 
                 {/* Barra de Progreso Semafórica */}
                 <View style={styles.trackBar}>
-                  <View style={[styles.fillBar, { width: `${item.percentage}%`, backgroundColor: colorSemaforo }]} />
+                  <View style={[styles.fillBar, { width: `${Math.min(100, Number(item.percentage) || 0)}%`, backgroundColor: colorSemaforo }]} />
                 </View>
 
                 <View style={styles.cardFooter}>
@@ -174,7 +173,7 @@ export default function PresupuestosScreen({ token }) {
               <ActivityIndicator size="small" color={colors.green700} style={styles.loadingCategorias} />
             ) : categorias.length === 0 ? (
               <Text style={styles.categoriasVacias}>
-                No hay categorías de gasto. Crea una en la pestaña "Categorías" antes de establecer un presupuesto.
+                No hay categorías de gasto. Crea una en la sección Categorías antes de establecer un presupuesto.
               </Text>
             ) : (
               <ScrollView style={styles.categoriasList} nestedScrollEnabled>
@@ -232,14 +231,14 @@ const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas },
   cargandoTexto: { marginTop: 10, color: colors.muted, fontSize: 13 },
   header: { marginBottom: 18 },
-  titulo: { fontSize: 22, fontWeight: '700', color: colors.green950, letterSpacing: -0.4 },
+  titulo: { fontSize: 23, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   subtitulo: { fontSize: 12, color: colors.muted, marginTop: 4 },
-  cardPresupuesto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 14, padding: 17, marginBottom: 12, elevation: 0 },
+  cardPresupuesto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 17, marginBottom: 12, elevation: 0 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  categoriaNombre: { fontSize: 15, fontWeight: '700', color: colors.green950 },
+  categoriaNombre: { fontSize: 15, fontWeight: '800', color: colors.ink },
   badgeSemaforo: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgeTexto: { color: '#ffffff', fontSize: 10, fontWeight: 'bold' },
-  trackBar: { height: 7, backgroundColor: '#edf1ed', borderRadius: 6, overflow: 'hidden', marginBottom: 12 },
+  trackBar: { height: 7, backgroundColor: colors.blue50, borderRadius: 6, overflow: 'hidden', marginBottom: 12 },
   fillBar: { height: '100%', borderRadius: 6 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
   montoDetalle: { fontSize: 11, color: colors.muted },
@@ -250,7 +249,7 @@ const styles = StyleSheet.create({
     position: 'absolute', 
     right: 25, 
     bottom: 25, 
-    backgroundColor: colors.green800, 
+    backgroundColor: colors.blue700,
     width: 54, 
     height: 54, 
     borderRadius: 16, 
@@ -259,7 +258,7 @@ const styles = StyleSheet.create({
     elevation: 5 
   },
   fabIcon: { color: colors.white, fontSize: 28, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(21,63,50,0.38)', justifyContent: 'center', padding: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(23,37,84,0.28)', justifyContent: 'center', padding: 18 },
   modalContent: { backgroundColor: colors.white, borderRadius: 17, padding: 22, borderColor: colors.line, borderWidth: 1 },
   modalTitulo: { fontSize: 18, fontWeight: '700', color: colors.green950, marginBottom: 15 },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 6 },

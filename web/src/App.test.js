@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('renders the Nivia sign-in screen when there is no session', () => {
+  localStorage.removeItem('nivia_token');
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Nivia' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Correo Electrónico')).toBeInTheDocument();
 });

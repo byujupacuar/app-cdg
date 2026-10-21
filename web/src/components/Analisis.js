@@ -152,6 +152,8 @@ export default function Analisis({ refreshKey, onNavigate }) {
   const totalMovimientos = Number(resumen.totalMovimientos) || 0;
   const cuentas = datos?.resumenCuentas?.cuentas || [];
   const cuentaSeleccionada = cuentas.find((cuenta) => cuenta.id === cuentaId);
+  const escalaComparacion = Math.max(ingresos, gastos, 1);
+  const tasaAhorro = ingresos > 0 ? (balance / ingresos) * 100 : null;
 
   return (
     <div className="analysis-page">
@@ -320,6 +322,35 @@ export default function Analisis({ refreshKey, onNavigate }) {
           </section>
 
           <section className="analysis-content-grid">
+            <article className="panel-card analysis-comparison-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="panel-kicker">FLUJO DEL PERÍODO</span>
+                  <h2>Ingresos y gastos</h2>
+                </div>
+                <span className="analysis-savings-rate">
+                  <small>{balance >= 0 ? 'Superávit' : 'Balance neto'}</small>
+                  <strong className={balance >= 0 ? 'amount-positive' : 'amount-negative'}>{currency(balance)}</strong>
+                  {tasaAhorro !== null && <small>Tasa de ahorro: {tasaAhorro.toFixed(1)}%</small>}
+                </span>
+              </div>
+              <div className="analysis-comparison-rows" role="img" aria-label={`Ingresos ${currency(ingresos)} y gastos ${currency(gastos)} durante el período`}>
+                <div className="analysis-comparison-row">
+                  <div><span>Ingresos</span><strong className="amount-positive">{currency(ingresos)}</strong></div>
+                  <div className="analysis-comparison-track">
+                    <span className="analysis-comparison-fill income-fill" style={{ width: `${(ingresos / escalaComparacion) * 100}%` }} />
+                  </div>
+                </div>
+                <div className="analysis-comparison-row">
+                  <div><span>Gastos</span><strong className="amount-negative">{currency(gastos)}</strong></div>
+                  <div className="analysis-comparison-track">
+                    <span className="analysis-comparison-fill expense-fill" style={{ width: `${(gastos / escalaComparacion) * 100}%` }} />
+                  </div>
+                </div>
+              </div>
+              <p className="analysis-chart-caption">Totales agregados del rango seleccionado</p>
+            </article>
+
             <article className="panel-card">
               <div className="panel-heading">
                 <div>

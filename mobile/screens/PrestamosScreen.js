@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, Modal, Alert, ActivityIndicator, RefreshControl 
@@ -43,8 +43,7 @@ export default function PrestamosScreen({ token }) {
   const [fechaLimitePlan, setFechaLimitePlan] = useState('');
   const [cuotasPlan, setCuotasPlan] = useState([]);
 
-  const cargarDatos = async () => {
-    setLoading(true);
+  const cargarDatos = useCallback(async () => {
     const res = await obtenerPrestamos(token);
     if (res.exito) {
       setTotales(res.datos.totales);
@@ -52,11 +51,11 @@ export default function PrestamosScreen({ token }) {
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [token]);
 
   useEffect(() => {
-    cargarDatos();
-  }, [token]);
+    Promise.resolve().then(cargarDatos);
+  }, [cargarDatos]);
 
   const handleCrear = async () => {
     const monto = Number(montoTotal);
@@ -161,6 +160,10 @@ export default function PrestamosScreen({ token }) {
         style={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargarDatos(); }} />}
       >
+        <View style={styles.header}>
+          <Text style={styles.titulo}>Préstamos y deudas</Text>
+          <Text style={styles.subtitulo}>Lleva el control de lo que debes y te deben</Text>
+        </View>
         {/* Tarjetas Resumen */}
         <View style={styles.resumenRow}>
           <View style={[styles.resumenCard, { backgroundColor: colors.green100 }]}>
@@ -496,10 +499,13 @@ export default function PrestamosScreen({ token }) {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: colors.canvas },
   container: { flex: 1, paddingHorizontal: 18, paddingTop: 22 },
+  header: { marginBottom: 16 },
+  titulo: { color: colors.ink, fontSize: 23, fontWeight: '800', letterSpacing: -0.5 },
+  subtitulo: { color: colors.muted, fontSize: 12, marginTop: 4 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas },
   cargandoTexto: { marginTop: 10, color: colors.muted, fontSize: 13 },
   resumenRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  resumenCard: { width: '48%', padding: 15, borderRadius: 13, alignItems: 'center' },
+  resumenCard: { width: '48%', padding: 15, borderRadius: 16, alignItems: 'center' },
   resumenLabel: { fontSize: 10, fontWeight: '700', color: colors.muted, marginBottom: 5 },
   resumenMonto: { fontSize: 19, fontWeight: '700' },
   tabSelector: { flexDirection: 'row', backgroundColor: '#edf1ed', borderRadius: 10, padding: 4, marginBottom: 16 },
@@ -507,7 +513,7 @@ const styles = StyleSheet.create({
   tabBtnActivo: { backgroundColor: colors.white, elevation: 1 },
   tabTxt: { fontSize: 11, fontWeight: '700', color: colors.muted },
   tabTxtActivo: { color: colors.green800 },
-  loanCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 13, padding: 16, marginBottom: 11, elevation: 0 },
+  loanCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 11, elevation: 0 },
   loanHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   contactName: { fontSize: 15, fontWeight: '700', color: colors.green950 },
   subtext: { fontSize: 11, color: colors.muted, marginTop: 3 },
@@ -538,9 +544,9 @@ const styles = StyleSheet.create({
   sinPagos: { color: colors.muted, fontSize: 10 },
   vacioCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, padding: 22, borderRadius: 13, alignItems: 'center', marginTop: 10 },
   vacioTexto: { color: colors.muted, fontSize: 12 },
-  fab: { position: 'absolute', right: 20, bottom: 20, backgroundColor: colors.green800, width: 54, height: 54, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  fab: { position: 'absolute', right: 20, bottom: 20, backgroundColor: colors.blue700, width: 54, height: 54, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   fabIcon: { color: colors.white, fontSize: 28, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(21,63,50,0.38)', justifyContent: 'center', padding: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(23,37,84,0.28)', justifyContent: 'center', padding: 18 },
   modalScroll: { flexGrow: 1, justifyContent: 'center' },
   modalContent: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 22 },
   modalTitulo: { fontSize: 18, fontWeight: '700', color: colors.green950, marginBottom: 14 },

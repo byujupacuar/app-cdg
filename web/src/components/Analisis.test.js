@@ -11,6 +11,7 @@ jest.mock('../services/api', () => ({
 describe('Analisis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     obtenerDashboard.mockResolvedValue({
       exito: true,
       resumen: {},
@@ -20,6 +21,10 @@ describe('Analisis', () => {
     exportarMovimientosCSV.mockResolvedValue(new Blob(['Fecha,Monto']));
     URL.createObjectURL = jest.fn(() => 'blob:csv');
     URL.revokeObjectURL = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('applies and exports the full selected month', async () => {
@@ -53,5 +58,21 @@ describe('Analisis', () => {
         fechaFin: '2024-02-29'
       }));
     });
+  });
+
+  test('shows period comparison and derives the savings rate from API totals', async () => {
+    obtenerDashboard.mockResolvedValue({
+      exito: true,
+      resumen: { balanceTotal: 30, totalIngresos: 120, totalGastos: 90 },
+      resumenCuentas: { cuentas: [] },
+      ultimosMovimientos: [],
+      gastosPorCategoria: []
+    });
+
+    render(<Analisis />);
+
+    expect(await screen.findByRole('heading', { name: 'Ingresos y gastos' })).toBeInTheDocument();
+    expect(screen.getByText('Tasa de ahorro: 25.0%')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Ingresos.*gastos/ })).toBeInTheDocument();
   });
 });

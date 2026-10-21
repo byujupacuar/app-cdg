@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
-  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform
+  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Share
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -14,9 +14,13 @@ import {
 } from '../api';
 import { colors } from '../theme';
 
-export default function RegistroScreen({ token }) {
+export default function RegistroScreen({ token, navigation, route }) {
   const scrollRef = useRef(null);
   const [tipo, setTipo] = useState('GASTO'); // 'GASTO' | 'INGRESO'
+  const [showForm, setShowForm] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('TODOS');
+  const [filtroCuenta, setFiltroCuenta] = useState(null);
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
@@ -31,7 +35,7 @@ export default function RegistroScreen({ token }) {
   const [editandoId, setEditandoId] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
 
-  const cargarMovimientos = async (activa = () => true) => {
+  const cargarMovimientos = useCallback(async (activa = () => true) => {
     const res = await obtenerMovimientosReal(token);
     if (!activa()) return;
 
@@ -42,11 +46,16 @@ export default function RegistroScreen({ token }) {
     }
 
     setLoadingMovimientos(false);
-  };
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
       let activa = true;
+      if (route?.params?.abrirNuevo) {
+        setShowForm(true);
+        if (route.params.tipoInicial) setTipo(route.params.tipoInicial);
+        navigation.setParams({ abrirNuevo: false, tipoInicial: undefined });
+      }
       setLoadingCats(true);
       setLoadingMovimientos(true);
 
@@ -90,7 +99,7 @@ export default function RegistroScreen({ token }) {
       return () => {
         activa = false;
       };
-    }, [token, tipo])
+    }, [token, tipo, route, navigation, cargarMovimientos])
   );
 
   const limpiarFormulario = () => {
@@ -100,6 +109,7 @@ export default function RegistroScreen({ token }) {
   };
 
   const handleEditar = (movimiento) => {
+    setShowForm(true);
     setEditandoId(movimiento.id);
     setMonto(String(movimiento.amount));
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
@@ -141,9 +151,12 @@ export default function RegistroScreen({ token }) {
     if (res.exito) {
       Alert.alert(
         "¡Éxito! 🚀",
-        editandoId ? "Movimiento actualizado." : `${tipo === 'GASTO' ? 'Gasto' : 'Ingreso'} guardado en PostgreSQL.`
+        res.sincronizado
+          ? (editandoId ? "Movimiento actualizado." : `${tipo === 'GASTO' ? 'Gasto' : 'Ingreso'} guardado.`)
+          : "Movimiento guardado en este dispositivo. Se sincronizará cuando vuelva la conexión."
       );
       limpiarFormulario();
+      setShowForm(false);
       cargarMovimientos();
     } else {
       Alert.alert(editandoId ? "Error al actualizar" : "Error al guardar", res.mensaje);
@@ -171,7 +184,12 @@ export default function RegistroScreen({ token }) {
 
             setMovimientos(actuales => actuales.filter(item => item.id !== movimiento.id));
             if (editandoId === movimiento.id) limpiarFormulario();
-            Alert.alert("Eliminado", "El movimiento ha sido eliminado.");
+            Alert.alert(
+              "Eliminado",
+              res.sincronizado
+                ? "El movimiento ha sido eliminado."
+                : "El movimiento se eliminó en este dispositivo y se sincronizará cuando vuelva la conexión."
+            );
           }
         }
       ]
@@ -180,6 +198,50 @@ export default function RegistroScreen({ token }) {
 
   // Filtrar categorías según el tipo seleccionado (GASTO o INGRESO)
   const categoriasFiltradas = categorias.filter(c => c.type === tipo);
+  const movimientosFiltrados = movimientos
+    .filter((movimiento) => filtroTipo === 'TODOS' || movimiento.type === filtroTipo)
+    .filter((movimiento) => !filtroCuenta || movimiento.financialAccountId === filtroCuenta || movimiento.financialAccount?.id === filtroCuenta)
+    .filter((movimiento) => {
+      const consulta = busqueda.trim().toLocaleLowerCase();
+      if (!consulta) return true;
+      return [
+        movimiento.description,
+        movimiento.category?.name,
+        movimiento.financialAccount?.name,
+        movimiento.type
+      ].some((valor) => String(valor || '').toLocaleLowerCase().includes(consulta));
+    });
+  const fechaActual = new Date();
+  const movimientosPeriodo = movimientosFiltrados.filter((movimiento) => {
+    const fecha = new Date(movimiento.date);
+    return fecha.getFullYear() === fechaActual.getFullYear() && fecha.getMonth() === fechaActual.getMonth();
+  });
+  const totalPeriodo = movimientosPeriodo.reduce((total, movimiento) =>
+    total + (movimiento.type === 'INGRESO' ? 1 : -1) * Number(movimiento.amount || 0), 0);
+  const ingresosPeriodo = movimientosPeriodo.filter((item) => item.type === 'INGRESO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const gastosPeriodo = movimientosPeriodo.filter((item) => item.type === 'GASTO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const exportarCsv = async () => {
+    const escapar = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
+    const filas = [
+      ['Fecha', 'Tipo', 'Descripción', 'Categoría', 'Cuenta', 'Monto'],
+      ...movimientosFiltrados.map((item) => [
+        item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
+        item.type,
+        item.description,
+        item.category?.name,
+        item.financialAccount?.name,
+        Number(item.amount || 0).toFixed(2)
+      ])
+    ];
+    try {
+      await Share.share({
+        title: 'Exportar movimientos Nivia',
+        message: filas.map((fila) => fila.map(escapar).join(',')).join('\n')
+      });
+    } catch {
+      Alert.alert('No se pudo exportar', 'Intenta compartir el archivo de nuevo.');
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -192,8 +254,62 @@ export default function RegistroScreen({ token }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.titulo}>{editandoId ? 'Editar Movimiento' : 'Registro Rápido'}</Text>
+      <View style={styles.listHeader}>
+        <View>
+          <Text style={styles.titulo}>Movimientos</Text>
+          <Text style={styles.subtitulo}>Todos tus ingresos y gastos</Text>
+        </View>
+        <TouchableOpacity style={styles.nuevoButton} onPress={() => { limpiarFormulario(); setShowForm(true); }}>
+          <Text style={styles.nuevoButtonText}>+ Nuevo</Text>
+        </TouchableOpacity>
+      </View>
 
+      <View style={styles.periodCard}>
+        <Text style={styles.periodLabel}>Balance de {fechaActual.toLocaleDateString('es', { month: 'long' })}</Text>
+        <Text style={styles.periodAmount}>{totalPeriodo < 0 ? '−' : ''}${Math.abs(totalPeriodo).toFixed(2)}</Text>
+        <View style={styles.periodTotals}>
+          <Text style={styles.periodIncome}>↑ ${ingresosPeriodo.toFixed(2)} ingresos</Text>
+          <Text style={styles.periodExpense}>↓ ${gastosPeriodo.toFixed(2)} gastos</Text>
+        </View>
+      </View>
+
+      <TextInput
+        style={styles.searchInput}
+        value={busqueda}
+        onChangeText={setBusqueda}
+        placeholder="Buscar por detalle, categoría o cuenta"
+        placeholderTextColor={colors.muted}
+        accessibilityLabel="Buscar movimientos"
+      />
+      <View style={styles.filtersRow}>
+        {['TODOS', 'GASTO', 'INGRESO'].map((item) => (
+          <TouchableOpacity key={item} onPress={() => setFiltroTipo(item)} style={[styles.filterChip, filtroTipo === item && styles.filterChipActive]}>
+            <Text style={[styles.filterText, filtroTipo === item && styles.filterTextActive]}>{item === 'TODOS' ? 'Todos' : item === 'GASTO' ? 'Gastos' : 'Ingresos'}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity onPress={exportarCsv} style={styles.exportButton}>
+          <Text style={styles.exportText}>↓ CSV</Text>
+        </TouchableOpacity>
+      </View>
+      {cuentas.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountFilters}>
+          <TouchableOpacity onPress={() => setFiltroCuenta(null)} style={[styles.filterChip, !filtroCuenta && styles.filterChipActive]}>
+            <Text style={[styles.filterText, !filtroCuenta && styles.filterTextActive]}>Todas las cuentas</Text>
+          </TouchableOpacity>
+          {cuentas.map((cuenta) => (
+            <TouchableOpacity key={cuenta.id} onPress={() => setFiltroCuenta(cuenta.id)} style={[styles.filterChip, filtroCuenta === cuenta.id && styles.filterChipActive]}>
+              <Text style={[styles.filterText, filtroCuenta === cuenta.id && styles.filterTextActive]}>{cuenta.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {showForm && (
+      <View style={styles.formCard}>
+      <View style={styles.formHeading}>
+        <Text style={styles.formTitle}>{editandoId ? 'Editar movimiento' : 'Nuevo movimiento'}</Text>
+        <TouchableOpacity onPress={() => { limpiarFormulario(); setShowForm(false); }}><Text style={styles.linkCuenta}>Cerrar</Text></TouchableOpacity>
+      </View>
       {/* Selector Gasto / Ingreso */}
       <View style={styles.tipoRow}>
         <TouchableOpacity 
@@ -261,7 +377,7 @@ export default function RegistroScreen({ token }) {
       ) : categoriasFiltradas.length === 0 ? (
         <View style={styles.vacioBox}>
           <Text style={styles.vacioTxt}>
-            No hay categorías de {tipo.toLowerCase()} creadas. Ve a la pestaña "Categorías" para agregar una.
+            No hay categorías de {tipo.toLowerCase()} creadas. Ve a la sección Categorías para agregar una.
           </Text>
         </View>
       ) : (
@@ -315,16 +431,29 @@ export default function RegistroScreen({ token }) {
           <Text style={styles.btnCancelarTexto}>Cancelar edición</Text>
         </TouchableOpacity>
       )}
+      </View>
+      )}
 
       <View style={styles.historial}>
-        <Text style={styles.tituloHistorial}>Movimientos registrados</Text>
+        <Text style={styles.tituloHistorial}>Historial</Text>
         {loadingMovimientos ? (
           <ActivityIndicator size="small" color={colors.green700} style={{ marginVertical: 15 }} />
         ) : movimientos.length === 0 ? (
           <Text style={styles.vacioTxt}>Todavía no tienes movimientos registrados.</Text>
+        ) : movimientosFiltrados.length === 0 ? (
+          <Text style={styles.vacioTxt}>No hay movimientos que coincidan con estos filtros.</Text>
         ) : (
-          movimientos.map((movimiento) => (
-            <View key={movimiento.id} style={styles.movimientoCard}>
+          movimientosFiltrados.map((movimiento, index) => {
+            const fechaGrupo = movimiento.date
+              ? new Date(movimiento.date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })
+              : 'Sin fecha';
+            const fechaAnterior = index > 0 && movimientosFiltrados[index - 1].date
+              ? new Date(movimientosFiltrados[index - 1].date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })
+              : null;
+            return (
+            <React.Fragment key={movimiento.id}>
+            {fechaGrupo !== fechaAnterior && <Text style={styles.dateHeading}>{fechaGrupo}</Text>}
+            <View style={styles.movimientoCard}>
               <View style={styles.movimientoDetalle}>
                 <Text style={styles.movimientoCategoria}>
                   {movimiento.category?.icon || '🏷️'} {movimiento.category?.name || 'General'}
@@ -367,7 +496,8 @@ export default function RegistroScreen({ token }) {
                 </View>
               </View>
             </View>
-          ))
+            </React.Fragment>
+          )})
         )}
       </View>
     </ScrollView>
@@ -379,34 +509,57 @@ const styles = StyleSheet.create({
   keyboardContainer: { flex: 1, backgroundColor: colors.canvas },
   container: { flex: 1 },
   content: { padding: 18, paddingTop: 22, paddingBottom: 32 },
-  titulo: { fontSize: 22, fontWeight: '700', color: colors.green950, letterSpacing: -0.4, marginBottom: 18 },
-  tipoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, backgroundColor: '#edf1ed', borderRadius: 11, padding: 4 },
+  listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 17 },
+  titulo: { fontSize: 23, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
+  subtitulo: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  nuevoButton: { borderRadius: 11, backgroundColor: colors.blue700, paddingHorizontal: 13, paddingVertical: 10 },
+  nuevoButtonText: { color: colors.white, fontSize: 11, fontWeight: '800' },
+  periodCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 17, padding: 16, marginBottom: 14 },
+  periodLabel: { color: colors.muted, fontSize: 11 },
+  periodAmount: { color: colors.ink, fontSize: 26, fontWeight: '800', marginTop: 5 },
+  periodTotals: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  periodIncome: { color: colors.emerald700, fontSize: 10, fontWeight: '700' },
+  periodExpense: { color: colors.red, fontSize: 10, fontWeight: '700' },
+  searchInput: { height: 44, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingHorizontal: 13, color: colors.ink, fontSize: 12, marginBottom: 10 },
+  filtersRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
+  filterChip: { paddingVertical: 8, paddingHorizontal: 11, borderRadius: 10, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, marginRight: 6 },
+  filterChipActive: { backgroundColor: colors.blue50, borderColor: colors.blue100 },
+  filterText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
+  filterTextActive: { color: colors.blue700 },
+  exportButton: { marginLeft: 'auto', paddingVertical: 8, paddingHorizontal: 10 },
+  exportText: { color: colors.blue700, fontSize: 10, fontWeight: '800' },
+  accountFilters: { flexGrow: 0, marginBottom: 12 },
+  formCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 18, padding: 15, marginBottom: 16 },
+  formHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  formTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  tipoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, backgroundColor: '#edf1f7', borderRadius: 11, padding: 4 },
   btnTipo: { flex: 1, padding: 11, borderRadius: 8, backgroundColor: 'transparent', alignItems: 'center', marginHorizontal: 2 },
   btnGastoActivo: { backgroundColor: colors.white, elevation: 1 },
   btnIngresoActivo: { backgroundColor: colors.white, elevation: 1 },
   txtTipo: { fontSize: 13, fontWeight: '700', color: colors.muted },
-  txtActivo: { color: colors.green800 },
+  txtActivo: { color: colors.blue700 },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 7, marginTop: 10 },
   etiquetaCuenta: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   linkCuenta: { color: colors.green800, fontSize: 11, fontWeight: '700', marginBottom: 7 },
   tipoCuenta: { color: colors.muted, fontSize: 9, marginTop: 3 },
   labelOptional: { color: '#9aa69f', fontWeight: '400' },
-  inputMonto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 23, fontWeight: '700', color: colors.green950 },
+  inputMonto: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 23, fontWeight: '700', color: colors.ink },
   categoriasScroll: { flexGrow: 0, marginVertical: 3 },
   categoriasRow: { paddingVertical: 4 },
   catCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, alignItems: 'center', marginRight: 8 },
-  catCardSeleccionada: { backgroundColor: colors.green100, borderColor: '#83ac91' },
+  catCardSeleccionada: { backgroundColor: colors.blue50, borderColor: colors.blue600 },
   catIcon: { fontSize: 17, marginBottom: 2 },
   catName: { fontSize: 11, fontWeight: '700', color: colors.ink },
   vacioBox: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, padding: 14, borderRadius: 10, marginVertical: 8, alignItems: 'center' },
   vacioTxt: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   inputDetalle: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, padding: 13, fontSize: 14, color: colors.ink, marginBottom: 17 },
-  btnGuardar: { backgroundColor: colors.green800, padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 20 },
+  btnGuardar: { backgroundColor: colors.blue700, padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 20 },
   btnTexto: { color: colors.white, fontSize: 14, fontWeight: '700' },
   btnCancelarEdicion: { alignItems: 'center', padding: 12, marginTop: -14, marginBottom: 16 },
   btnCancelarTexto: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   historial: { marginTop: 8 },
-  tituloHistorial: { fontSize: 18, fontWeight: '700', color: colors.green950, marginBottom: 10 },
+  tituloHistorial: { fontSize: 16, fontWeight: '800', color: colors.ink, marginBottom: 12 },
+  dateHeading: { color: colors.muted, fontSize: 11, fontWeight: '800', textTransform: 'capitalize', marginTop: 9, marginBottom: 8 },
   movimientoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 12, padding: 13, marginBottom: 9 },
   movimientoDetalle: { flex: 1, marginRight: 8 },
   movimientoCategoria: { fontSize: 13, fontWeight: '700', color: colors.ink },
@@ -415,8 +568,8 @@ const styles = StyleSheet.create({
   movimientoAcciones: { alignItems: 'flex-end' },
   movimientoMonto: { fontSize: 13, fontWeight: '700', marginBottom: 7 },
   botonesMovimiento: { flexDirection: 'row', alignItems: 'center' },
-  btnEditar: { paddingHorizontal: 9, paddingVertical: 6, backgroundColor: colors.green100, borderRadius: 7, marginRight: 6 },
-  btnEditarTexto: { color: colors.green800, fontSize: 10, fontWeight: '700' },
+  btnEditar: { paddingHorizontal: 9, paddingVertical: 6, backgroundColor: colors.blue50, borderRadius: 7, marginRight: 6 },
+  btnEditarTexto: { color: colors.blue700, fontSize: 10, fontWeight: '700' },
   btnEliminar: { minWidth: 54, alignItems: 'center', paddingHorizontal: 7, paddingVertical: 6, backgroundColor: colors.redSoft, borderRadius: 7 },
   btnEliminarTexto: { color: colors.red, fontSize: 10, fontWeight: '700' }
 });

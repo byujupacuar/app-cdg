@@ -23,7 +23,7 @@ const autenticarToken = (req, res, next) => {
 /**
  * POST: /api/sync
  * Procesa la cola de mutaciones generadas sin conexión.
- * Aplica la estrategia Last-Write-Wins (LWW) para resolver conflictos.
+ * Aplica en orden las mutaciones pendientes del cliente.
  */
 router.post('/', autenticarToken, async (req, res) => {
   try {
@@ -55,14 +55,8 @@ router.post('/', autenticarToken, async (req, res) => {
         if (entity === 'TRANSACTION') {
           const resultado = await procesarTransaccion(action, data, accountId, userId, clientTimestamp);
           resultados.push({ tempId, status: 'SYNCED', serverId: resultado.id });
-        } else if (entity === 'LOAN') {
-          const resultado = await procesarPrestamo(action, data, accountId, userId, clientTimestamp);
-          resultados.push({ tempId, status: 'SYNCED', serverId: resultado.id });
-        } else if (entity === 'CATEGORY') {
-          const resultado = await procesarCategoria(action, data, accountId, clientTimestamp);
-          resultados.push({ tempId, status: 'SYNCED', serverId: resultado.id });
         } else {
-          resultados.push({ tempId, status: 'SKIPPED', error: 'Entidad no soportada' });
+          resultados.push({ tempId, status: 'ERROR', error: 'Entidad no soportada' });
         }
       } catch (errError) {
         console.error(`Error procesando mutación ${tempId}:`, errError);
@@ -82,7 +76,7 @@ router.post('/', autenticarToken, async (req, res) => {
   }
 });
 
-// Helper: Procesar mutaciones de Transacciones con LWW
+// Helper: Procesar mutaciones de Transacciones de forma idempotente
 async function procesarTransaccion(action, data, accountId, userId, clientTimestamp) {
   const { id, amount, type, description, categoryName, date, financialAccountId } = data;
   const fechaCliente = new Date(clientTimestamp || Date.now());
@@ -101,110 +95,100 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
       throw new Error('No se encontró una cuenta válida para el movimiento sincronizado.');
     }
 
-    // Buscar o crear la categoría correspondiente
+    const tipo = ['INGRESO', 'GASTO'].includes(type) ? type : 'GASTO';
+    const monto = Number(amount);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new Error('El monto del movimiento sincronizado no es válido.');
+    }
+
     let categoria = await prisma.category.findFirst({
-      where: { name: categoryName || 'General' }
+      where: { name: categoryName || 'General', type: tipo }
     });
 
     if (!categoria) {
       categoria = await prisma.category.create({
-        data: { name: categoryName || 'General', icon: '🏷️', type: type || 'GASTO' }
+        data: { name: categoryName || 'General', icon: '🏷️', type: tipo }
+      });
+    }
+
+    const existente = await prisma.transaction.findUnique({ where: { id } });
+    if (existente) {
+      if (existente.accountId !== accountId) {
+        throw new Error('El identificador del movimiento ya pertenece a otra cuenta.');
+      }
+      return prisma.transaction.update({
+        where: { id },
+        data: {
+          amount: monto,
+          type: tipo,
+          description: description || 'Registrado offline',
+          date: date ? new Date(date) : existente.date,
+          financialAccountId: cuentaFinanciera.id,
+          categoryId: categoria.id
+        }
       });
     }
 
     return await prisma.transaction.create({
       data: {
-        id: id, // Preserva el UUID generado en la app cliente
-        amount: parseFloat(amount),
-        type: type || 'GASTO',
+        id,
+        amount: monto,
+        type: tipo,
         description: description || 'Registrado offline',
         date: date ? new Date(date) : new Date(),
         accountId,
         financialAccountId: cuentaFinanciera.id,
         userId,
         categoryId: categoria.id,
-        createdAt: fechaCliente,
-        updatedAt: fechaCliente
+        createdAt: fechaCliente
       }
     });
   }
 
   if (action === 'UPDATE') {
-    const existente = await prisma.transaction.findUnique({ where: { id } });
+    const existente = await prisma.transaction.findFirst({
+      where: { id, accountId }
+    });
+    if (!existente) throw new Error('No se encontró el movimiento que se desea actualizar.');
 
-    // Estrategia LWW (Last-Write-Wins): Se aplica el cambio solo si la mutación es más reciente
-    if (existente && existente.updatedAt > fechaCliente) {
-      return existente; // Descartar mutación antigua
+    const tipoValido = ['INGRESO', 'GASTO'].includes(type);
+    const monto = Number(amount);
+    if (!tipoValido || !Number.isFinite(monto) || monto <= 0 || !categoryName) {
+      throw new Error('Los datos del movimiento no son válidos.');
     }
+
+    const [categoria, cuentaFinanciera] = await Promise.all([
+      prisma.category.findFirst({ where: { name: categoryName, type } }),
+      financialAccountId
+        ? prisma.financialAccount.findFirst({
+          where: { id: financialAccountId, householdAccountId: accountId }
+        })
+        : Promise.resolve(existente.financialAccountId
+          ? { id: existente.financialAccountId }
+          : null)
+    ]);
+    if (!categoria) throw new Error('No se encontró una categoría válida.');
+    if (!cuentaFinanciera) throw new Error('No se encontró una cuenta financiera válida.');
 
     return await prisma.transaction.update({
       where: { id },
       data: {
-        amount: parseFloat(amount),
-        description: description,
-        updatedAt: fechaCliente
+        amount: monto,
+        type,
+        description: description || 'Sin detalle',
+        date: date ? new Date(date) : existente.date,
+        categoryId: categoria.id,
+        financialAccountId: cuentaFinanciera.id
       }
     });
   }
 
   if (action === 'DELETE') {
-    return await prisma.transaction.delete({ where: { id } });
-  }
-}
-
-// Helper: Procesar mutaciones de Préstamos con LWW
-async function procesarPrestamo(action, data, accountId, userId, clientTimestamp) {
-  const { id, contactName, totalAmount, dueAmount, type, dueDate } = data;
-  const fechaCliente = new Date(clientTimestamp || Date.now());
-
-  if (action === 'CREATE') {
-    return await prisma.loan.create({
-      data: {
-        id: id,
-        contactName,
-        totalAmount: parseFloat(totalAmount),
-        dueAmount: parseFloat(dueAmount || totalAmount),
-        type: type || 'OTORGADO',
-        dueDate: dueDate ? new Date(dueDate) : null,
-        accountId,
-        userId,
-        createdAt: fechaCliente,
-        updatedAt: fechaCliente
-      }
-    });
+    const resultado = await prisma.transaction.deleteMany({ where: { id, accountId } });
+    return { id, eliminada: resultado.count > 0 };
   }
 
-  if (action === 'ABONO' || action === 'UPDATE') {
-    const existente = await prisma.loan.findUnique({ where: { id } });
-
-    if (existente && existente.updatedAt > fechaCliente) {
-      return existente;
-    }
-
-    return await prisma.loan.update({
-      where: { id },
-      data: {
-        dueAmount: parseFloat(dueAmount),
-        updatedAt: fechaCliente
-      }
-    });
-  }
-}
-
-// Helper: Procesar mutaciones de Categorías
-async function procesarCategoria(action, data, accountId, clientTimestamp) {
-  const { id, name, icon, type } = data;
-
-  if (action === 'CREATE') {
-    return await prisma.category.create({
-      data: {
-        id: id,
-        name: name.trim(),
-        icon: icon || '🏷️',
-        type: type || 'GASTO'
-      }
-    });
-  }
+  throw new Error(`Acción no soportada para movimientos: ${action}`);
 }
 
 module.exports = router;

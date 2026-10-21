@@ -181,6 +181,11 @@ export default function Cuentas({ onUpdated }) {
           <strong>{currency(totalDisponible)}</strong>
           <small>Todos los saldos disponibles; débito vinculado sin duplicar</small>
         </article>
+        <article className="panel-card account-total-card account-net-worth-card">
+          <span className="panel-kicker">PATRIMONIO NETO</span>
+          <strong>{currency(Number(totalDisponible) - Number(deudaTarjetas))}</strong>
+          <small>Dinero disponible menos deuda de tarjetas</small>
+        </article>
         <article className="panel-card account-total-card account-debt-card">
           <span className="panel-kicker">DEUDA EN TARJETAS</span>
           <strong>{currency(deudaTarjetas)}</strong>

@@ -8,6 +8,11 @@ import {
   eliminarMovimiento
 } from '../services/api';
 
+const currency = (amount) => new Intl.NumberFormat('es', {
+  style: 'currency',
+  currency: 'USD'
+}).format(Number(amount) || 0);
+
 export default function Registro({ onGuardado, onNavigate }) {
   const [tipo, setTipo] = useState('GASTO');
   const [monto, setMonto] = useState('');
@@ -24,6 +29,10 @@ export default function Registro({ onGuardado, onNavigate }) {
   const [eliminandoId, setEliminandoId] = useState(null);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('TODOS');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
 
   const cargarMovimientos = async (activo = () => true) => {
     setCargandoMovimientos(true);
@@ -160,6 +169,50 @@ export default function Registro({ onGuardado, onNavigate }) {
     }
   };
 
+  const movimientosFiltrados = movimientos.filter((movimiento) => {
+    const fecha = String(movimiento.date || '').slice(0, 10);
+    const consulta = busqueda.trim().toLocaleLowerCase();
+    const texto = [
+      movimiento.description,
+      movimiento.category?.name,
+      movimiento.financialAccount?.name
+    ].filter(Boolean).join(' ').toLocaleLowerCase();
+    return (filtroTipo === 'TODOS' || movimiento.type === filtroTipo) &&
+      (!fechaInicio || fecha >= fechaInicio) &&
+      (!fechaFin || fecha <= fechaFin) &&
+      (!consulta || texto.includes(consulta));
+  });
+  const ingresosFiltrados = movimientosFiltrados
+    .filter((movimiento) => movimiento.type === 'INGRESO')
+    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
+  const gastosFiltrados = movimientosFiltrados
+    .filter((movimiento) => movimiento.type === 'GASTO')
+    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
+
+  const exportarCSV = () => {
+    const valorCSV = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['Fecha', 'Tipo', 'Categoría', 'Detalle', 'Cuenta', 'Monto'],
+      ...movimientosFiltrados.map((movimiento) => [
+        String(movimiento.date || '').slice(0, 10),
+        movimiento.type === 'INGRESO' ? 'Ingreso' : 'Gasto',
+        movimiento.category?.name || 'General',
+        movimiento.description || 'Sin detalle',
+        movimiento.financialAccount?.name || '',
+        Number(movimiento.amount) || 0
+      ])
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(valorCSV).join(',')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `movimientos${fechaInicio ? `-${fechaInicio}` : ''}${fechaFin ? `-${fechaFin}` : ''}.csv`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <div className="transactions-page">
       <section className="categories-intro">
@@ -169,6 +222,23 @@ export default function Registro({ onGuardado, onNavigate }) {
           <p>Agrega tus ingresos y gastos para tener una visión clara de tu dinero.</p>
         </div>
         <div className="movement-intro-icon">↕</div>
+      </section>
+
+      <section className="transaction-summary" aria-label="Totales de movimientos filtrados">
+        <article className="panel-card transaction-total-card">
+          <span className="panel-kicker">INGRESOS</span>
+          <strong className="amount-positive">{currency(ingresosFiltrados)}</strong>
+        </article>
+        <article className="panel-card transaction-total-card">
+          <span className="panel-kicker">GASTOS</span>
+          <strong className="amount-negative">{currency(gastosFiltrados)}</strong>
+        </article>
+        <article className="panel-card transaction-total-card">
+          <span className="panel-kicker">BALANCE NETO</span>
+          <strong className={ingresosFiltrados - gastosFiltrados >= 0 ? 'amount-positive' : 'amount-negative'}>
+            {currency(ingresosFiltrados - gastosFiltrados)}
+          </strong>
+        </article>
       </section>
 
       <div className="transaction-layout">
@@ -316,17 +386,47 @@ export default function Registro({ onGuardado, onNavigate }) {
       <section className="panel-card transaction-history">
         <div className="panel-heading">
           <div>
-            <span className="panel-kicker">HISTORIAL</span>
+            <span className="panel-kicker">HISTORIAL · {movimientosFiltrados.length} REGISTROS</span>
             <h2>Movimientos registrados</h2>
           </div>
+          <button className="button-secondary" type="button" onClick={exportarCSV} disabled={!movimientosFiltrados.length}>
+            ↓ Exportar CSV
+          </button>
+        </div>
+        <div className="transaction-filters">
+          <label className="transaction-search">
+            <span>Buscar</span>
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(event) => setBusqueda(event.target.value)}
+              placeholder="Descripción, categoría o cuenta"
+            />
+          </label>
+          <label>
+            <span>Tipo</span>
+            <select value={filtroTipo} onChange={(event) => setFiltroTipo(event.target.value)}>
+              <option value="TODOS">Todos</option>
+              <option value="INGRESO">Ingresos</option>
+              <option value="GASTO">Gastos</option>
+            </select>
+          </label>
+          <label>
+            <span>Desde</span>
+            <input type="date" value={fechaInicio} max={fechaFin || undefined} onChange={(event) => setFechaInicio(event.target.value)} />
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input type="date" value={fechaFin} min={fechaInicio || undefined} onChange={(event) => setFechaFin(event.target.value)} />
+          </label>
         </div>
         {cargandoMovimientos ? (
           <div className="form-loading"><span className="loader" />Cargando movimientos...</div>
-        ) : movimientos.length === 0 ? (
-          <div className="panel-empty"><span>↕</span><p>Aún no tienes movimientos registrados.</p></div>
+        ) : movimientosFiltrados.length === 0 ? (
+          <div className="panel-empty"><span>↕</span><p>{movimientos.length ? 'No hay movimientos que coincidan con estos filtros.' : 'Aún no tienes movimientos registrados.'}</p></div>
         ) : (
           <div className="transaction-history-list">
-            {movimientos.map((movimiento) => (
+            {movimientosFiltrados.map((movimiento) => (
               <article className="transaction-history-item" key={movimiento.id}>
                 <span className={`transaction-history-icon ${movimiento.type === 'INGRESO' ? 'history-income' : 'history-expense'}`}>
                   {movimiento.category?.icon || '🏷️'}

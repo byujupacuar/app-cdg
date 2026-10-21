@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { 
   obtenerCategorias, 
+  obtenerDashboardReal,
+  obtenerPresupuestos,
   crearCategoria, 
   actualizarCategoria, 
   eliminarCategoria 
@@ -21,6 +23,9 @@ import { colors } from '../theme';
 
 export default function CategoriasScreen({ token }) {
   const [categorias, setCategorias] = useState([]);
+  const [presupuestos, setPresupuestos] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,21 +39,27 @@ export default function CategoriasScreen({ token }) {
   const [guardando, setGuardando] = useState(false);
 
   // Cargar categorías desde la API
-  const cargarCategorias = async () => {
-    setLoading(true);
-    const res = await obtenerCategorias(token);
-    if (res.exito) {
-      setCategorias(res.categorias);
-    } else {
+  const cargarCategorias = useCallback(async () => {
+    const [res, resumen, limites] = await Promise.all([
+      obtenerCategorias(token),
+      obtenerDashboardReal(token),
+      obtenerPresupuestos(token)
+    ]);
+    if (res.exito) setCategorias(res.categorias || []);
+    else {
       Alert.alert("Error", res.mensaje || "No se pudieron obtener las categorías.");
+    }
+    if (resumen.exito) setDashboard(resumen.datos);
+    if (limites.exito) {
+      setPresupuestos(limites.presupuestos || []);
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [token]);
 
   useEffect(() => {
-    cargarCategorias();
-  }, [token]);
+    Promise.resolve().then(cargarCategorias);
+  }, [cargarCategorias]);
 
   // Abrir Modal para Crear
   const abrirModalCrear = () => {
@@ -121,6 +132,13 @@ export default function CategoriasScreen({ token }) {
     );
   };
 
+  const categoriasVisibles = categorias.filter((categoria) =>
+    `${categoria.name} ${categoria.type}`.toLocaleLowerCase().includes(busqueda.trim().toLocaleLowerCase())
+  );
+  const gastosMes = dashboard?.gastosPorCategoria || [];
+  const totalPresupuestado = presupuestos.reduce((total, item) => total + Number(item.limitAmount || 0), 0);
+  const totalGastadoPresupuestos = presupuestos.reduce((total, item) => total + Number(item.spentAmount || 0), 0);
+
   if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
@@ -143,16 +161,39 @@ export default function CategoriasScreen({ token }) {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.titulo}>Gestión de Categorías</Text>
-          <Text style={styles.subtitulo}>Personaliza tus etiquetas financieras</Text>
+          <Text style={styles.titulo}>Categorías</Text>
+          <Text style={styles.subtitulo}>Tus gastos agrupados por categoría</Text>
         </View>
 
-        {categorias.length === 0 ? (
+        <View style={styles.budgetSummary}>
+          <Text style={styles.summaryLabel}>Presupuestos utilizados este mes</Text>
+          <View style={styles.summaryAmounts}>
+            <Text style={styles.summarySpent}>${totalGastadoPresupuestos.toFixed(2)}</Text>
+            <Text style={styles.summaryLimit}>de ${totalPresupuestado.toFixed(2)}</Text>
+          </View>
+          <View style={styles.summaryTrack}>
+            <View style={[styles.summaryFill, { width: `${totalPresupuestado > 0 ? Math.min(100, totalGastadoPresupuestos / totalPresupuestado * 100) : 0}%` }]} />
+          </View>
+        </View>
+        <TextInput
+          style={styles.searchInput}
+          value={busqueda}
+          onChangeText={setBusqueda}
+          placeholder="Buscar categoría"
+          placeholderTextColor={colors.muted}
+        />
+
+        {categoriasVisibles.length === 0 ? (
           <View style={styles.vacioCard}>
-            <Text style={styles.vacioTexto}>No hay categorías registradas. Añade una nueva con el botón "+".</Text>
+            <Text style={styles.vacioTexto}>{categorias.length ? 'No hay resultados para esta búsqueda.' : 'No hay categorías registradas. Añade una nueva con el botón "+".'}</Text>
           </View>
         ) : (
-          categorias.map((cat) => (
+          categoriasVisibles.map((cat) => {
+            const presupuesto = presupuestos.find((item) => item.categoryId === cat.id || item.categoria === cat.name);
+            const gastoReal = gastosMes.find((item) => item.id === cat.id || item.nombre === cat.name);
+            const gastado = Number(presupuesto?.spentAmount ?? gastoReal?.monto ?? 0);
+            const limite = Number(presupuesto?.limitAmount || 0);
+            return (
             <View key={cat.id} style={styles.catCard}>
               <View style={styles.catIconBox}>
                 <Text style={styles.catIcon}>{cat.icon}</Text>
@@ -170,6 +211,14 @@ export default function CategoriasScreen({ token }) {
                   ]}>
                     {cat.type}
                   </Text>
+                  {cat.type === 'GASTO' && (
+                    <View style={styles.categoryUsage}>
+                      <Text style={styles.categoryUsageText}>
+                        ${gastado.toFixed(2)}{limite > 0 ? ` de $${limite.toFixed(2)}` : ' gastados'}
+                      </Text>
+                      {limite > 0 && <View style={styles.categoryTrack}><View style={[styles.categoryFill, { width: `${Math.min(100, gastado / limite * 100)}%` }]} /></View>}
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -190,7 +239,7 @@ export default function CategoriasScreen({ token }) {
                 </TouchableOpacity>
               </View>
             </View>
-          ))
+          )})
         )}
       </ScrollView>
 
@@ -274,13 +323,21 @@ const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas },
   cargandoTexto: { marginTop: 10, color: colors.muted, fontSize: 13 },
   header: { marginBottom: 18 },
-  titulo: { fontSize: 22, fontWeight: '700', color: colors.green950, letterSpacing: -0.4 },
+  titulo: { fontSize: 23, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   subtitulo: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  budgetSummary: { backgroundColor: colors.blue700, padding: 16, borderRadius: 17, marginBottom: 13 },
+  summaryLabel: { color: '#dbeafe', fontSize: 10, fontWeight: '600' },
+  summaryAmounts: { flexDirection: 'row', alignItems: 'baseline', gap: 5, marginTop: 7 },
+  summarySpent: { color: colors.white, fontSize: 23, fontWeight: '800' },
+  summaryLimit: { color: '#dbeafe', fontSize: 11 },
+  summaryTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 4, overflow: 'hidden', marginTop: 12 },
+  summaryFill: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 4 },
+  searchInput: { height: 43, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 11, fontSize: 12, marginBottom: 12, color: colors.ink },
   catCard: { 
     backgroundColor: colors.white, 
     borderColor: colors.line,
     borderWidth: 1,
-    borderRadius: 13, 
+    borderRadius: 16,
     padding: 13, 
     marginBottom: 9, 
     flexDirection: 'row', 
@@ -297,7 +354,11 @@ const styles = StyleSheet.create({
   },
   catIcon: { fontSize: 24 },
   catInfo: { flex: 1, marginLeft: 12 },
-  catName: { fontSize: 14, fontWeight: '700', color: colors.ink, marginBottom: 4 },
+  catName: { fontSize: 14, fontWeight: '800', color: colors.ink, marginBottom: 4 },
+  categoryUsage: { marginTop: 6 },
+  categoryUsageText: { color: colors.muted, fontSize: 9, fontWeight: '600' },
+  categoryTrack: { height: 4, backgroundColor: colors.blue50, borderRadius: 3, overflow: 'hidden', marginTop: 5 },
+  categoryFill: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 3 },
   badgeTipo: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
   badgeGasto: { backgroundColor: colors.redSoft },
   badgeIngreso: { backgroundColor: colors.green100 },
@@ -314,7 +375,7 @@ const styles = StyleSheet.create({
     position: 'absolute', 
     right: 25, 
     bottom: 25, 
-    backgroundColor: colors.green800, 
+    backgroundColor: colors.blue700,
     width: 54, 
     height: 54, 
     borderRadius: 16, 
@@ -323,7 +384,7 @@ const styles = StyleSheet.create({
     elevation: 5 
   },
   fabIcon: { color: colors.white, fontSize: 28, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(21,63,50,0.38)', justifyContent: 'center', padding: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(23,37,84,0.28)', justifyContent: 'center', padding: 18 },
   modalContent: { backgroundColor: colors.white, borderRadius: 17, padding: 22, borderColor: colors.line, borderWidth: 1 },
   modalTitulo: { fontSize: 18, fontWeight: '700', color: colors.green950, marginBottom: 16, textAlign: 'left' },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 6 },

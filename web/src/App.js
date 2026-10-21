@@ -236,7 +236,7 @@ function App() {
 
         <div className="app-page">
           {seccion === 'dashboard' && (
-            <Dashboard refreshKey={actualizacion} onNavigate={setSeccion} />
+            <Dashboard refreshKey={actualizacion} onNavigate={setSeccion} userName={usuario?.name} />
           )}
           {seccion === 'analisis' && (
             <Analisis refreshKey={actualizacion} onNavigate={setSeccion} />

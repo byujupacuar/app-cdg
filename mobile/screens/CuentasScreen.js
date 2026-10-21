@@ -171,17 +171,24 @@ export default function CuentasScreen({ token }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.titulo}>Cuentas</Text>
-      <Text style={styles.intro}>Consulta tus saldos y mueve dinero entre tus cuentas.</Text>
+      <Text style={styles.intro}>Consulta tu patrimonio y administra tus fuentes de dinero.</Text>
 
       <View style={styles.resumenRow}>
         <View style={styles.resumenCard}>
-          <Text style={styles.resumenLabel}>Disponible</Text>
+          <Text style={styles.resumenLabel}>Liquidez</Text>
           <Text style={styles.resumenMonto}>{moneda(totalDisponible)}</Text>
         </View>
         <View style={styles.resumenCard}>
           <Text style={styles.resumenLabel}>Deuda en tarjetas</Text>
           <Text style={[styles.resumenMonto, styles.deuda]}>{moneda(deudaTarjetas)}</Text>
         </View>
+      </View>
+      <View style={styles.netWorthCard}>
+        <View style={styles.netWorthCopy}>
+          <Text style={styles.netWorthLabel}>Patrimonio neto</Text>
+          <Text style={styles.netWorthAmount}>{moneda(totalDisponible - deudaTarjetas)}</Text>
+        </View>
+        <Text style={styles.netWorthIcon}>▣</Text>
       </View>
 
       <View style={styles.card}>
@@ -327,22 +334,27 @@ export default function CuentasScreen({ token }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
   content: { padding: 18, paddingTop: 22, paddingBottom: 32 },
-  titulo: { color: colors.green950, fontSize: 22, fontWeight: '700' },
+  titulo: { color: colors.ink, fontSize: 23, fontWeight: '800', letterSpacing: -0.5 },
   intro: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5, marginBottom: 15 },
   resumenRow: { flexDirection: 'row', gap: 9, marginBottom: 12 },
-  resumenCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 12, flex: 1, padding: 13 },
+  resumenCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 15, flex: 1, padding: 14 },
   resumenLabel: { color: colors.muted, fontSize: 10, fontWeight: '600' },
-  resumenMonto: { color: colors.green800, fontSize: 17, fontWeight: '700', marginTop: 5 },
+  resumenMonto: { color: colors.blue700, fontSize: 17, fontWeight: '800', marginTop: 5 },
+  netWorthCard: { backgroundColor: colors.blue700, borderRadius: 17, padding: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  netWorthCopy: { flex: 1 },
+  netWorthLabel: { color: '#dbeafe', fontSize: 11, fontWeight: '600' },
+  netWorthAmount: { color: colors.white, fontSize: 23, fontWeight: '800', marginTop: 5 },
+  netWorthIcon: { color: 'rgba(255,255,255,0.8)', fontSize: 28 },
   deuda: { color: colors.red },
-  card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 13, marginBottom: 12, padding: 15 },
-  tituloSeccion: { color: colors.green950, fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, marginBottom: 12, padding: 16 },
+  tituloSeccion: { color: colors.ink, fontSize: 15, fontWeight: '800', marginBottom: 10 },
   filaCuenta: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingVertical: 10 },
   infoCuenta: { flex: 1 },
   nombreCuenta: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   tipoCuenta: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  saldoCuenta: { color: colors.green800, fontSize: 12, fontWeight: '700' },
+  saldoCuenta: { color: colors.blue700, fontSize: 12, fontWeight: '700' },
   ajustarBoton: { marginLeft: 8, padding: 5 },
-  ajustarTexto: { color: colors.green800, fontSize: 10, fontWeight: '700' },
+  ajustarTexto: { color: colors.blue700, fontSize: 10, fontWeight: '700' },
   ajusteSaldo: { borderBottomColor: colors.line, borderBottomWidth: 1, paddingBottom: 11 },
   botonesAjuste: { alignItems: 'center', flexDirection: 'row', gap: 14 },
   label: { color: colors.ink, fontSize: 11, fontWeight: '700', marginBottom: 6, marginTop: 7 },
@@ -350,9 +362,9 @@ const styles = StyleSheet.create({
   textoAyuda: { color: colors.muted, fontSize: 10, lineHeight: 15, marginBottom: 8 },
   opcionesCuentas: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 5 },
   opcionCuenta: { backgroundColor: colors.canvas, borderColor: colors.line, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
-  opcionCuentaActiva: { backgroundColor: colors.green100, borderColor: colors.green700 },
+  opcionCuentaActiva: { backgroundColor: colors.blue50, borderColor: colors.blue700 },
   opcionCuentaTexto: { color: colors.muted, fontSize: 10, fontWeight: '600' },
-  opcionCuentaTextoActivo: { color: colors.green800 },
-  boton: { alignItems: 'center', backgroundColor: colors.green800, borderRadius: 9, marginTop: 7, padding: 12 },
+  opcionCuentaTextoActivo: { color: colors.blue700 },
+  boton: { alignItems: 'center', backgroundColor: colors.blue700, borderRadius: 11, marginTop: 7, padding: 12 },
   botonTexto: { color: colors.white, fontSize: 12, fontWeight: '700' }
 });

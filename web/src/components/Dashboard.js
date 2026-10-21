@@ -6,10 +6,13 @@ const currency = (value) => new Intl.NumberFormat('es', {
   currency: 'USD'
 }).format(Number(value) || 0);
 
-export default function Dashboard({ refreshKey, onNavigate }) {
+export default function Dashboard({ refreshKey, onNavigate, userName }) {
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [manualRefresh, setManualRefresh] = useState(0);
+  const [flujoSemanal, setFlujoSemanal] = useState({ cargando: true, resumen: null });
 
   const cargarDatos = useCallback(async () => {
     setCargando(true);
@@ -20,6 +23,7 @@ export default function Dashboard({ refreshKey, onNavigate }) {
         throw new Error(res.mensaje || res.error || 'No se pudo cargar el resumen.');
       }
       setDatos(res);
+      setUltimaActualizacion(new Date());
     } catch (err) {
       console.error('Error al cargar dashboard:', err);
       setError(err.response?.data?.error || err.message || 'No se pudo conectar con el servidor.');
@@ -30,7 +34,30 @@ export default function Dashboard({ refreshKey, onNavigate }) {
 
   useEffect(() => {
     cargarDatos();
-  }, [cargarDatos, refreshKey]);
+  }, [cargarDatos, refreshKey, manualRefresh]);
+
+  useEffect(() => {
+    let activo = true;
+    setFlujoSemanal({ cargando: true, resumen: null });
+    const hoy = new Date();
+    const inicio = new Date(hoy);
+    inicio.setDate(inicio.getDate() - 6);
+    const fechaLocal = (fecha) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+
+    obtenerDashboard({
+      fechaInicio: fechaLocal(inicio),
+      fechaFin: fechaLocal(hoy),
+      incluirTodos: true
+    }).then((res) => {
+      if (!activo) return;
+      if (!res.exito) throw new Error(res.error || 'No se pudo consultar el flujo semanal.');
+      setFlujoSemanal({ cargando: false, resumen: res.resumen || {} });
+    }).catch(() => {
+      if (activo) setFlujoSemanal({ cargando: false, resumen: null });
+    });
+
+    return () => { activo = false; };
+  }, [refreshKey, manualRefresh]);
 
   if (cargando && !datos) {
     return <div className="page-loading"><span className="loader" />Cargando tu resumen...</div>;
@@ -42,7 +69,7 @@ export default function Dashboard({ refreshKey, onNavigate }) {
         <span className="empty-icon">!</span>
         <h2>No pudimos cargar el resumen</h2>
         <p>{error}</p>
-        <button className="button-primary" type="button" onClick={cargarDatos}>Intentar de nuevo</button>
+        <button className="button-primary" type="button" onClick={() => setManualRefresh((actual) => actual + 1)}>Intentar de nuevo</button>
       </section>
     );
   }
@@ -55,17 +82,38 @@ export default function Dashboard({ refreshKey, onNavigate }) {
   const movimientos = datos?.ultimosMovimientos || [];
   const resumenCuentas = datos?.resumenCuentas || {};
   const cuentas = resumenCuentas.cuentas || [];
+  const ahorroPorcentaje = ingresos > 0 ? (balance / ingresos) * 100 : null;
+  const nombreCorto = userName?.trim().split(/\s+/)[0];
+  const ingresosSemanales = Number(flujoSemanal.resumen?.totalIngresos) || 0;
+  const gastosSemanales = Number(flujoSemanal.resumen?.totalGastos) || 0;
+  const escalaSemanal = Math.max(ingresosSemanales, gastosSemanales, 1);
 
   return (
     <div className="dashboard-page">
       <section className="welcome-row">
         <div>
-          <h2>Hola, aquí está tu panorama financiero</h2>
+          <h2>{nombreCorto ? `Hola, ${nombreCorto}` : 'Hola, aquí está tu panorama financiero'}</h2>
           <p>Esto es lo que ha pasado con tu dinero este mes.</p>
+          <div className={`dashboard-sync-status ${error ? 'sync-error' : ''}`} role="status">
+            <span aria-hidden="true" />
+            {error
+              ? 'No se pudo actualizar'
+              : cargando
+                ? 'Actualizando información...'
+                : `Datos actualizados${ultimaActualizacion ? ` · ${ultimaActualizacion.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+          </div>
         </div>
-        <button className="button-secondary" type="button" onClick={cargarDatos} disabled={cargando}>
-          <span aria-hidden="true">↻</span> Actualizar
-        </button>
+        <div className="dashboard-actions">
+          <button className="button-primary" type="button" onClick={() => onNavigate('movimientos')}>
+            <span aria-hidden="true">＋</span> Añadir movimiento
+          </button>
+          <button className="button-secondary" type="button" onClick={() => onNavigate('cuentas')}>
+            <span aria-hidden="true">⇄</span> Transferir
+          </button>
+          <button className="button-secondary dashboard-refresh" type="button" onClick={() => setManualRefresh((actual) => actual + 1)} disabled={cargando} aria-label="Actualizar resumen">
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
       </section>
 
       {error && <div className="inline-error" role="alert">{error}</div>}
@@ -77,7 +125,11 @@ export default function Dashboard({ refreshKey, onNavigate }) {
             <span className="summary-icon balance-icon">◈</span>
           </div>
           <strong className={balance >= 0 ? 'amount-positive' : 'amount-negative'}>{currency(balance)}</strong>
-          <span className="summary-footnote">Ingresos menos gastos</span>
+          <span className="summary-footnote">
+            {ahorroPorcentaje === null
+              ? 'Ingresos menos gastos'
+              : `${ahorroPorcentaje.toFixed(1)}% de ingresos retenidos`}
+          </span>
         </article>
         <article className="summary-card">
           <div className="summary-card-top">
@@ -95,6 +147,36 @@ export default function Dashboard({ refreshKey, onNavigate }) {
           <strong className="amount-negative">{currency(gastos)}</strong>
           <span className="summary-footnote">Salidas registradas este mes</span>
         </article>
+      </section>
+
+      <section className="panel-card weekly-cashflow-panel" aria-label="Flujo de efectivo de los últimos 7 días">
+        <div className="panel-heading">
+          <div>
+            <span className="panel-kicker">FLUJO DE EFECTIVO</span>
+            <h2>Últimos 7 días</h2>
+          </div>
+          {!flujoSemanal.cargando && flujoSemanal.resumen && (
+            <span className={`weekly-cashflow-net ${Number(flujoSemanal.resumen.balanceTotal) >= 0 ? 'amount-positive' : 'amount-negative'}`}>
+              {currency(flujoSemanal.resumen.balanceTotal)}
+            </span>
+          )}
+        </div>
+        {flujoSemanal.cargando ? (
+          <div className="weekly-cashflow-message"><span className="loader" />Consultando tu actividad reciente...</div>
+        ) : flujoSemanal.resumen ? (
+          <div className="weekly-cashflow-rows">
+            <div className="weekly-cashflow-row">
+              <div><span>Ingresos</span><strong className="amount-positive">{currency(ingresosSemanales)}</strong></div>
+              <div className="weekly-cashflow-track"><span className="income-fill" style={{ width: `${(ingresosSemanales / escalaSemanal) * 100}%` }} /></div>
+            </div>
+            <div className="weekly-cashflow-row">
+              <div><span>Gastos</span><strong className="amount-negative">{currency(gastosSemanales)}</strong></div>
+              <div className="weekly-cashflow-track"><span className="expense-fill" style={{ width: `${(gastosSemanales / escalaSemanal) * 100}%` }} /></div>
+            </div>
+          </div>
+        ) : (
+          <p className="weekly-cashflow-message">No fue posible consultar el flujo de estos días.</p>
+        )}
       </section>
 
       <section className="panel-card account-overview">
