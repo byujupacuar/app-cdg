@@ -23,6 +23,11 @@ export const loginUsuario = async (credentials) => {
   return res.data;
 };
 
+export const registrarUsuario = async (datos) => {
+  const res = await api.post('/api/auth/register', datos);
+  return res.data;
+};
+
 export const obtenerDashboard = async (periodo) => {
   const res = await api.get('/api/movimientos/dashboard', { params: periodo });
   return res.data;

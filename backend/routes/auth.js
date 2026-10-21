@@ -6,7 +6,11 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { OAuth2Client } = require('google-auth-library');
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '')
+  .split(',')
+  .map((clientId) => clientId.trim())
+  .filter(Boolean);
+const googleClient = new OAuth2Client(googleClientIds[0]);
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
 
 // POST: /auth/google - Login / Registro con Google OAuth 2.0
@@ -14,40 +18,33 @@ router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
 
-    if (!idToken) {
+    if (typeof idToken !== 'string' || !idToken) {
       return res.status(400).json({ error: 'Token de Google requerido.' });
     }
 
-    let googleId, email, name;
-
-    // Entorno de Desarrollo / Pruebas Locales (Simulación sin Google Cloud Console)
-    if (idToken === "token_obtenido_de_google_sdk" || idToken.startsWith("dev_token_")) {
-      googleId = "google_user_demo_12345";
-      email = "usuario.demo@gmail.com";
-      name = "Usuario Demo Google";
-    } else {
-      // Entorno de Producción: Verificación real del JWT enviado por Google SDK
-      const ticket = await googleClient.verifyIdToken({
-        idToken: idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-
-      const payload = ticket.getPayload();
-      googleId = payload.sub;
-      email = payload.email;
-      name = payload.name;
+    if (googleClientIds.length === 0) {
+      console.error('No hay Client IDs de Google configurados.');
+      return res.status(503).json({ error: 'El inicio de sesión con Google no está configurado.' });
     }
 
-    if (!email) {
-      return res.status(400).json({ error: 'La cuenta de Google no proporciona un correo válido.' });
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: googleClientIds
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+      return res.status(401).json({ error: 'La cuenta de Google debe tener un correo verificado.' });
     }
 
-    // Buscar si el usuario ya existe por googleId o email
+    const googleId = payload.sub;
+    const email = payload.email.toLowerCase();
+    const name = payload.name;
     let usuario = await prisma.user.findFirst({
       where: {
         OR: [
-          { googleId: googleId },
-          { email: email.toLowerCase() }
+          { googleId },
+          { email }
         ]
       }
     });
@@ -58,8 +55,8 @@ router.post('/google', async (req, res) => {
         const nuevoUser = await tx.user.create({
           data: {
             name: name || 'Usuario de Google',
-            email: email.toLowerCase(),
-            googleId: googleId,
+            email,
+            googleId,
             password: null
           }
         });
@@ -89,11 +86,12 @@ router.post('/google', async (req, res) => {
 
         return nuevoUser;
       });
+    } else if (usuario.googleId && usuario.googleId !== googleId) {
+      return res.status(409).json({ error: 'Este correo ya está vinculado a otra cuenta de Google.' });
     } else if (!usuario.googleId) {
-      // Si existía con contraseña previa, le asociamos el googleId
       usuario = await prisma.user.update({
         where: { id: usuario.id },
-        data: { googleId: googleId }
+        data: { googleId }
       });
     }
 

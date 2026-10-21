@@ -25,6 +25,13 @@ const rangoRapido = (preset) => {
   return { fechaInicio: fechaLocal(inicio), fechaFin: fin };
 };
 
+const rangoDelMes = (mes) => {
+  const [anio, numeroMes] = mes.split('-').map(Number);
+  const inicio = new Date(anio, numeroMes - 1, 1);
+  const fin = new Date(anio, numeroMes, 0);
+  return { fechaInicio: fechaLocal(inicio), fechaFin: fechaLocal(fin) };
+};
+
 const inicial = rangoRapido('30dias');
 
 const fechaLegible = (value) => {
@@ -36,6 +43,8 @@ const fechaLegible = (value) => {
 export default function Analisis({ refreshKey, onNavigate }) {
   const [desde, setDesde] = useState(inicial.fechaInicio);
   const [hasta, setHasta] = useState(inicial.fechaFin);
+  const [mesSeleccionado, setMesSeleccionado] = useState(fechaLocal(new Date()).slice(0, 7));
+  const [modoPeriodo, setModoPeriodo] = useState('fechas');
   const [rango, setRango] = useState(inicial);
   const [presetActivo, setPresetActivo] = useState('30dias');
   const [datos, setDatos] = useState(null);
@@ -90,6 +99,25 @@ export default function Analisis({ refreshKey, onNavigate }) {
     setError('');
     setPresetActivo('personalizado');
     setRango({ fechaInicio: desde, fechaFin: hasta });
+  };
+
+  const aplicarMes = (event) => {
+    event.preventDefault();
+    const numeroMes = Number(mesSeleccionado.slice(5, 7));
+    if (!/^\d{4}-\d{2}$/.test(mesSeleccionado) || numeroMes < 1 || numeroMes > 12) {
+      setError('Selecciona un mes válido.');
+      return;
+    }
+    if (mesSeleccionado > fechaLocal(new Date()).slice(0, 7)) {
+      setError('No puedes consultar un mes futuro.');
+      return;
+    }
+    const nuevoRango = rangoDelMes(mesSeleccionado);
+    setDesde(nuevoRango.fechaInicio);
+    setHasta(nuevoRango.fechaFin);
+    setPresetActivo('personalizado');
+    setError('');
+    setRango(nuevoRango);
   };
 
   const descargarCSV = async () => {
@@ -148,8 +176,24 @@ export default function Analisis({ refreshKey, onNavigate }) {
             </span>
           )}
         </div>
-        <div className="period-presets" aria-label="Períodos rápidos">
-          {[
+        <div className="period-presets" aria-label="Opciones de período">
+          <button
+            className={modoPeriodo === 'fechas' ? 'is-active' : ''}
+            type="button"
+            onClick={() => setModoPeriodo('fechas')}
+            aria-pressed={modoPeriodo === 'fechas'}
+          >
+            Por fechas
+          </button>
+          <button
+            className={modoPeriodo === 'mes' ? 'is-active' : ''}
+            type="button"
+            onClick={() => setModoPeriodo('mes')}
+            aria-pressed={modoPeriodo === 'mes'}
+          >
+            Por mes
+          </button>
+          {modoPeriodo === 'fechas' && [
             ['7dias', 'Últimos 7 días'],
             ['30dias', 'Últimos 30 días'],
             ['mes', 'Este mes']
@@ -164,20 +208,39 @@ export default function Analisis({ refreshKey, onNavigate }) {
             </button>
           ))}
         </div>
-        <form className="period-form" onSubmit={aplicarRango}>
-          <div>
-            <label htmlFor="analysis-from">Desde</label>
-            <input id="analysis-from" type="date" value={desde} max={hasta || undefined} onChange={(event) => setDesde(event.target.value)} required />
-          </div>
-          <span className="period-separator">hasta</span>
-          <div>
-            <label htmlFor="analysis-to">Hasta</label>
-            <input id="analysis-to" type="date" value={hasta} min={desde || undefined} max={fechaLocal(new Date())} onChange={(event) => setHasta(event.target.value)} required />
-          </div>
-          <button className="button-primary" type="submit" disabled={cargando}>
-            Aplicar período
-          </button>
-        </form>
+        {modoPeriodo === 'fechas' ? (
+          <form className="period-form" onSubmit={aplicarRango}>
+            <div>
+              <label htmlFor="analysis-from">Desde</label>
+              <input id="analysis-from" type="date" value={desde} max={hasta || undefined} onChange={(event) => setDesde(event.target.value)} required />
+            </div>
+            <span className="period-separator">hasta</span>
+            <div>
+              <label htmlFor="analysis-to">Hasta</label>
+              <input id="analysis-to" type="date" value={hasta} min={desde || undefined} max={fechaLocal(new Date())} onChange={(event) => setHasta(event.target.value)} required />
+            </div>
+            <button className="button-primary" type="submit" disabled={cargando}>
+              Aplicar período
+            </button>
+          </form>
+        ) : (
+          <form className="period-form" onSubmit={aplicarMes}>
+            <div>
+              <label htmlFor="analysis-month">Mes a consultar</label>
+              <input
+                id="analysis-month"
+                type="month"
+                value={mesSeleccionado}
+                max={fechaLocal(new Date()).slice(0, 7)}
+                onChange={(event) => setMesSeleccionado(event.target.value)}
+                required
+              />
+            </div>
+            <button className="button-primary" type="submit" disabled={cargando}>
+              Aplicar mes
+            </button>
+          </form>
+        )}
         <div className="analysis-account-filter">
           <label htmlFor="analysis-account">Cuenta o lugar</label>
           <select

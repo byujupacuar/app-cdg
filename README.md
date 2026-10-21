@@ -40,6 +40,14 @@ gastos por cuenta y período, consultar sus movimientos y exportarlos a CSV.
 En la web, el menú con tu nombre en la parte superior muestra los miembros de la
 cuenta, permite invitar a una pareja registrada y cerrar sesión.
 
+Para habilitar el inicio de sesión real con Google, configura el consentimiento
+OAuth en Google Cloud y crea Client IDs para Web, Android e iOS. En Render,
+define `GOOGLE_CLIENT_IDS` con esos IDs separados por comas; son identificadores
+públicos, no client secrets. La app móvil usa el paquete Android
+`com.jupacuar.mobile`; para Android también se necesitan las huellas SHA-1 de
+las claves de firma de desarrollo y producción, y para iOS un Bundle ID. Los
+dominios web y móviles deben estar autorizados en la configuración OAuth.
+
 ## Web
 
 En otra terminal:
