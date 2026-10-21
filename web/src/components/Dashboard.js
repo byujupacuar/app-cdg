@@ -100,8 +100,8 @@ export default function Dashboard({ refreshKey, onNavigate }) {
       <section className="panel-card account-overview">
         <div className="panel-heading">
           <div>
-            <span className="panel-kicker">DÓNDE ESTÁ TU DINERO</span>
-            <h2>Disponible por cuenta</h2>
+            <span className="panel-kicker">TUS CUENTAS</span>
+            <h2>Cuentas</h2>
           </div>
           <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
             Administrar <span aria-hidden="true">→</span>
@@ -110,7 +110,7 @@ export default function Dashboard({ refreshKey, onNavigate }) {
         {cuentas.length === 0 ? (
           <div className="panel-empty">
             <span>＋</span>
-            <p>Añade efectivo, cuentas bancarias u otros lugares.</p>
+            <p>Añade una cuenta para consultar tus saldos.</p>
             <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>Añadir una cuenta →</button>
           </div>
         ) : (

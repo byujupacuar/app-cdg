@@ -24,7 +24,7 @@ const tipos = [
   { value: 'BANCO', label: 'Banco' },
   { value: 'DEBITO', label: 'Débito' },
   { value: 'CREDITO', label: 'Crédito' },
-  { value: 'OTRO', label: 'Otro lugar' }
+  { value: 'OTRO', label: 'Otro' }
 ];
 
 const etiquetaTipo = (tipo) => tipos.find((item) => item.value === tipo)?.label || tipo;
@@ -170,8 +170,8 @@ export default function CuentasScreen({ token }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.titulo}>Lugares y cuentas</Text>
-      <Text style={styles.intro}>Consulta tus saldos, añade lugares y mueve dinero entre ellos.</Text>
+      <Text style={styles.titulo}>Cuentas</Text>
+      <Text style={styles.intro}>Consulta tus saldos y mueve dinero entre tus cuentas.</Text>
 
       <View style={styles.resumenRow}>
         <View style={styles.resumenCard}>
@@ -189,7 +189,7 @@ export default function CuentasScreen({ token }) {
         {cargando ? (
           <ActivityIndicator color={colors.green700} />
         ) : cuentas.length === 0 ? (
-          <Text style={styles.textoAyuda}>Todavía no has añadido ningún lugar.</Text>
+          <Text style={styles.textoAyuda}>Todavía no has añadido ninguna cuenta.</Text>
         ) : cuentas.map((cuenta) => (
           <View key={cuenta.id}>
             <View style={styles.filaCuenta}>
@@ -235,7 +235,7 @@ export default function CuentasScreen({ token }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.tituloSeccion}>Añadir lugar o cuenta</Text>
+        <Text style={styles.tituloSeccion}>Añadir cuenta</Text>
         <Text style={styles.label}>Nombre</Text>
         <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Ej. Banco principal" maxLength={60} />
         <Text style={styles.label}>Tipo</Text>
@@ -254,7 +254,7 @@ export default function CuentasScreen({ token }) {
           <>
             <Text style={styles.label}>Tipo personalizado</Text>
             <TextInput style={styles.input} value={tipoPersonalizado} onChangeText={setTipoPersonalizado} placeholder="Ej. Billetera digital" maxLength={30} />
-            <Text style={styles.textoAyuda}>Puedes añadir varios lugares, como PayPal, una caja de ahorro u otra billetera.</Text>
+            <Text style={styles.textoAyuda}>Puedes añadir billeteras digitales u otras cuentas.</Text>
           </>
         )}
         {tipo === 'DEBITO' ? (
@@ -272,7 +272,7 @@ export default function CuentasScreen({ token }) {
             <Text style={styles.textoAyuda}>
               {tipo === 'CREDITO'
                 ? 'Escribe cuánto debes hoy. Las compras aumentan la deuda y los pagos la reducen.'
-                : 'Escribe cuánto dinero tienes hoy en este lugar.'}
+                : 'Escribe cuánto dinero tienes hoy en esta cuenta.'}
             </Text>
           </>
         )}

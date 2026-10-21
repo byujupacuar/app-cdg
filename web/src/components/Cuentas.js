@@ -166,8 +166,8 @@ export default function Cuentas({ onUpdated }) {
       <section className="categories-intro">
         <div>
           <span className="panel-kicker">ORGANIZA TU DINERO</span>
-          <h2>Lugares y cuentas</h2>
-          <p>Consulta cuánto tienes en cada lugar y registra los movimientos entre ellos.</p>
+          <h2>Cuentas</h2>
+          <p>Consulta tus saldos y registra transferencias entre tus cuentas.</p>
         </div>
         <div className="movement-intro-icon">▤</div>
       </section>
@@ -193,13 +193,13 @@ export default function Cuentas({ onUpdated }) {
           <div className="panel-heading">
             <div>
               <span className="panel-kicker">TUS SALDOS</span>
-              <h2>Lugares y cuentas</h2>
+              <h2>Cuentas</h2>
             </div>
           </div>
           {cargando ? (
             <div className="form-loading"><span className="loader" />Cargando cuentas...</div>
           ) : cuentas.length === 0 ? (
-            <div className="panel-empty"><span>＋</span><p>Añade tu primer lugar o cuenta.</p></div>
+            <div className="panel-empty"><span>＋</span><p>Añade tu primera cuenta.</p></div>
           ) : (
             <div className="account-balance-list">
               {cuentas.map((cuenta) => (
@@ -256,7 +256,7 @@ export default function Cuentas({ onUpdated }) {
           <div className="panel-heading">
             <div>
               <span className="panel-kicker">AÑADIR</span>
-              <h2>Nuevo lugar o cuenta</h2>
+              <h2>Nueva cuenta</h2>
             </div>
           </div>
           <form className="account-form" onSubmit={handleCrearCuenta}>
@@ -268,13 +268,13 @@ export default function Cuentas({ onUpdated }) {
               <option value="BANCO">Cuenta bancaria</option>
               <option value="DEBITO">Tarjeta de débito</option>
               <option value="CREDITO">Tarjeta de crédito</option>
-              <option value="OTRO">Otro lugar o cuenta</option>
+              <option value="OTRO">Otro</option>
             </select>
             {tipo === 'OTRO' && (
               <>
                 <label htmlFor="account-custom-type">Tipo personalizado</label>
                 <input id="account-custom-type" value={tipoPersonalizado} maxLength={30} onChange={(event) => setTipoPersonalizado(event.target.value)} placeholder="Ej. Billetera digital" required />
-                <small className="account-form-help">Puedes añadir varios lugares, como PayPal, una caja de ahorro u otra billetera.</small>
+                <small className="account-form-help">Puedes añadir billeteras digitales u otras cuentas.</small>
               </>
             )}
             {tipo === 'DEBITO' ? (

@@ -242,7 +242,7 @@ export default function Analisis({ refreshKey, onNavigate }) {
           </form>
         )}
         <div className="analysis-account-filter">
-          <label htmlFor="analysis-account">Cuenta o lugar</label>
+          <label htmlFor="analysis-account">Cuenta</label>
           <select
             id="analysis-account"
             value={cuentaId}

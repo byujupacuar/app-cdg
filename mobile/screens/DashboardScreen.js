@@ -130,14 +130,14 @@ export default function DashboardScreen({ token, onLogout, navigation }) {
 
       <View style={styles.sectionCard}>
         <View style={styles.cuentasHeader}>
-          <Text style={styles.sectionTitle}>Dónde está tu dinero</Text>
+          <Text style={styles.sectionTitle}>Cuentas</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
             <Text style={styles.cuentasLink}>Administrar</Text>
           </TouchableOpacity>
         </View>
         {cuentasFinancieras.length === 0 ? (
           <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
-            <Text style={styles.vacioTexto}>Añade efectivo, bancos u otros lugares.</Text>
+            <Text style={styles.vacioTexto}>Añade una cuenta para consultar tus saldos.</Text>
           </TouchableOpacity>
         ) : (
           <>

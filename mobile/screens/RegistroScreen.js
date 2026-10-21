@@ -222,14 +222,14 @@ export default function RegistroScreen({ token }) {
       />
 
       <View style={styles.etiquetaCuenta}>
-        <Text style={styles.label}>Lugar o cuenta</Text>
+        <Text style={styles.label}>Cuenta</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
           <Text style={styles.linkCuenta}>Añadir</Text>
         </TouchableOpacity>
       </View>
       {cuentas.length === 0 ? (
         <TouchableOpacity style={styles.vacioBox} onPress={() => navigation.navigate('Cuentas')}>
-          <Text style={styles.vacioTxt}>Añade un lugar para registrar de dónde viene o a dónde va el dinero.</Text>
+          <Text style={styles.vacioTxt}>Añade una cuenta para registrar de dónde viene o a dónde va el dinero.</Text>
         </TouchableOpacity>
       ) : (
         <ScrollView

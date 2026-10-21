@@ -219,7 +219,7 @@ export default function Registro({ onGuardado, onNavigate }) {
             </div>
 
             <div className="form-label-row">
-              <label htmlFor="movement-account">Lugar o cuenta</label>
+              <label htmlFor="movement-account">Cuenta</label>
               <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
                 Administrar <span aria-hidden="true">→</span>
               </button>
@@ -240,7 +240,7 @@ export default function Registro({ onGuardado, onNavigate }) {
               </select>
             ) : (
               <div className="no-categories">
-                <p>No hay lugares o cuentas disponibles.</p>
+                <p>No hay cuentas disponibles.</p>
                 <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
                   Añadir cuenta <span aria-hidden="true">→</span>
                 </button>
