@@ -3,6 +3,7 @@ import { createNavigationContainerRef, NavigationContainer } from '@react-naviga
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { colors } from './theme';
 import { clearSession, getPendingMutationCount, loadSession, saveSession } from './database/offlineStore';
@@ -122,21 +123,31 @@ export default function App() {
 
   if (restaurandoSesion) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas }}>
-        <ActivityIndicator color={colors.green700} />
-        <Text style={{ color: colors.muted, marginTop: 10 }}>Abriendo tus datos guardados...</Text>
-      </View>
+      <SafeAreaProvider>
+        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas }}>
+          <ActivityIndicator color={colors.green700} />
+          <Text style={{ color: colors.muted, marginTop: 10 }}>Abriendo tus datos guardados...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
   if (!token) {
-    return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.canvas }}>
+          <AuthScreen onLoginSuccess={handleLoginSuccess} />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <StatusBar style="dark" backgroundColor={colors.canvas} />
-      <View style={{ flex: 1 }}>
+    <SafeAreaProvider>
+      <NavigationContainer ref={navigationRef}>
+        <StatusBar style="dark" backgroundColor={colors.white} />
+        <View style={{ flex: 1 }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: colors.white }}>
         {conexionDisponible === false && (
           <Text style={{
             backgroundColor: colors.green950,
@@ -165,54 +176,55 @@ export default function App() {
             {cambiosPendientes} cambio(s) esperando sincronización
           </Text>
         )}
-        <View style={{
-          height: 58,
-          backgroundColor: colors.white,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.line,
-          paddingHorizontal: 17,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 30, height: 30, backgroundColor: colors.blue700, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 9 }}>
-              <Text style={{ color: colors.white, fontWeight: '900', fontSize: 16 }}>N</Text>
+          <View style={{
+            height: 58,
+            backgroundColor: colors.white,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.line,
+            paddingHorizontal: 17,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 30, height: 30, backgroundColor: colors.blue700, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 9 }}>
+                <Text style={{ color: colors.white, fontWeight: '900', fontSize: 16 }}>N</Text>
+              </View>
+              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '900', letterSpacing: 1.2 }}>NIVIA</Text>
             </View>
-            <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '900', letterSpacing: 1.2 }}>NIVIA</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Estado de sincronización"
+                onPress={() => Alert.alert(
+                  conexionDisponible === false ? 'Sin conexión' : 'Sincronización',
+                  cambiosPendientes
+                    ? `${cambiosPendientes} cambio(s) guardado(s) para sincronizar.`
+                    : conexionDisponible === false
+                      ? 'Tus datos guardados siguen disponibles en este dispositivo.'
+                      : 'Tus datos están al día.'
+                )}
+                style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.blue50, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 15 }}>🔔</Text>
+                {(cambiosPendientes > 0 || conexionDisponible === false) && <View style={{ position: 'absolute', width: 7, height: 7, right: 5, top: 5, borderRadius: 4, backgroundColor: colors.emerald700 }} />}
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Abrir perfil y más secciones"
+                onPress={() => setMenuVisible(true)}
+                style={{ width: 35, height: 35, borderRadius: 18, backgroundColor: colors.emerald100, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ color: colors.emerald700, fontSize: 13, fontWeight: '800' }}>{usuario?.name?.trim()?.[0]?.toUpperCase() || 'U'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Estado de sincronización"
-              onPress={() => Alert.alert(
-                conexionDisponible === false ? 'Sin conexión' : 'Sincronización',
-                cambiosPendientes
-                  ? `${cambiosPendientes} cambio(s) guardado(s) para sincronizar.`
-                  : conexionDisponible === false
-                    ? 'Tus datos guardados siguen disponibles en este dispositivo.'
-                    : 'Tus datos están al día.'
-              )}
-              style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.blue50, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ fontSize: 15 }}>🔔</Text>
-              {(cambiosPendientes > 0 || conexionDisponible === false) && <View style={{ position: 'absolute', width: 7, height: 7, right: 5, top: 5, borderRadius: 4, backgroundColor: colors.emerald700 }} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Abrir perfil y más secciones"
-              onPress={() => setMenuVisible(true)}
-              style={{ width: 35, height: 35, borderRadius: 18, backgroundColor: colors.emerald100, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ color: colors.emerald700, fontSize: 13, fontWeight: '800' }}>{usuario?.name?.trim()?.[0]?.toUpperCase() || 'U'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </SafeAreaView>
         <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarHideOnKeyboard: true,
-          tabBarButton: ['Categorías', 'Préstamos', 'Cuenta', 'Perfil'].includes(route.name) ? () => null : undefined,
+          tabBarButton: ['Cuenta', 'Perfil'].includes(route.name) ? () => null : undefined,
           tabBarIcon: ({ color, size }) => {
             const icons = {
               Resumen: '⌂',
@@ -241,22 +253,27 @@ export default function App() {
           tabBarActiveTintColor: colors.blue700,
           tabBarInactiveTintColor: colors.muted,
           tabBarLabelStyle: {
-            fontSize: 9,
+            fontSize: 8,
             fontWeight: '700',
-            marginBottom: 5
+            lineHeight: 10,
+            marginBottom: 4
           },
           tabBarStyle: {
             backgroundColor: colors.white,
             borderTopColor: colors.line,
             borderTopWidth: 1,
-            height: 67,
-            paddingTop: 7,
+            height: 65,
+            paddingTop: 5,
+            paddingBottom: 2,
             elevation: 0
           },
           tabBarItemStyle: {
             borderRadius: 10,
-            marginHorizontal: 2,
-            marginVertical: 4
+            flex: 1,
+            minWidth: 0,
+            marginHorizontal: 0,
+            marginVertical: 4,
+            paddingHorizontal: 0
           }
         })}
         >
@@ -264,23 +281,23 @@ export default function App() {
             {(props) => <DashboardScreen {...props} token={token} usuario={usuario} />}
           </Tab.Screen>
 
-          <Tab.Screen name="Movimientos">
-            {(props) => <RegistroScreen {...props} token={token} />}
-          </Tab.Screen>
           <Tab.Screen name="Análisis" options={{ tabBarLabel: 'Análisis' }}>
             {(props) => <AnalysisScreen {...props} token={token} />}
           </Tab.Screen>
-          <Tab.Screen name="Presupuestos">
-            {(props) => <PresupuestosScreen {...props} token={token} />}
-          </Tab.Screen>
-          <Tab.Screen name="Cuentas">
-            {(props) => <CuentasScreen {...props} token={token} />}
+          <Tab.Screen name="Movimientos">
+            {(props) => <RegistroScreen {...props} token={token} />}
           </Tab.Screen>
           <Tab.Screen name="Categorías">
             {(props) => <CategoriasScreen {...props} token={token} />}
           </Tab.Screen>
+          <Tab.Screen name="Presupuestos">
+            {(props) => <PresupuestosScreen {...props} token={token} />}
+          </Tab.Screen>
           <Tab.Screen name="Préstamos">
             {(props) => <PrestamosScreen {...props} token={token} />}
+          </Tab.Screen>
+          <Tab.Screen name="Cuentas">
+            {(props) => <CuentasScreen {...props} token={token} />}
           </Tab.Screen>
           <Tab.Screen name="Cuenta">
             {(props) => <ParejaScreen {...props} token={token} onLogout={handleLogout} />}
@@ -313,7 +330,7 @@ export default function App() {
           <Text style={{ color: colors.white, fontSize: 29, lineHeight: 32, fontWeight: '400' }}>+</Text>
         </TouchableOpacity>
       </View>
-      <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(23,32,51,0.28)', justifyContent: 'flex-end' }}>
           <TouchableOpacity activeOpacity={1} onPress={() => setMenuVisible(false)} style={{ flex: 1 }} />
           <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 30 }}>
@@ -340,7 +357,8 @@ export default function App() {
             ))}
           </View>
         </View>
-      </Modal>
-    </NavigationContainer>
+        </Modal>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
