@@ -35,6 +35,7 @@ model User {
   password     String? // Opcional para logins vía Google OAuth
   googleId     String?       @unique
   accounts     AccountUser[]
+  categories   Category[]
   transactions Transaction[]
   loans        Loan[]
   createdAt    DateTime      @default(now())
@@ -109,8 +110,12 @@ model Category {
   name         String
   icon         String          @default("🏷️")
   type         TransactionType
+  userId       String?
+  user         User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   budgets      Budget[]
+
+  @@index([userId, name, type])
 }
 
 model Transaction {

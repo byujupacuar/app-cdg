@@ -30,7 +30,10 @@ router.get('/', autenticarToken, async (req, res) => {
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
     const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59, 999);
     const presupuestos = await prisma.budget.findMany({
-      where: { accountId: relacionCuenta.accountId },
+      where: {
+        accountId: relacionCuenta.accountId,
+        category: { userId }
+      },
       include: { category: true }
     });
 
@@ -86,7 +89,8 @@ router.post('/', autenticarToken, async (req, res) => {
       const categoria = await tx.category.findFirst({
         where: {
           id: categoryId,
-          type: 'GASTO'
+          type: 'GASTO',
+          userId
         }
       });
 

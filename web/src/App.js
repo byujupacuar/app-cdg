@@ -139,7 +139,7 @@ function App() {
     <div className="app-shell">
       <aside className="app-sidebar">
         <a className="app-brand" href="#inicio" onClick={(event) => event.preventDefault()}>
-          <span className="app-brand-mark">n</span>
+          <img className="app-brand-mark" src="/nivia-logo.png" alt="" />
           <span>Nivia<small>FINANZAS EN CALMA</small></span>
         </a>
 

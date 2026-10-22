@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -31,6 +31,7 @@ export default function App() {
   const [conexionDisponible, setConexionDisponible] = useState(null);
   const [cambiosPendientes, setCambiosPendientes] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [pantallaExtra, setPantallaExtra] = useState(null);
 
   useEffect(() => {
     let activa = true;
@@ -105,6 +106,8 @@ export default function App() {
         'La sesión inició, pero no pudo guardarse de forma segura en este dispositivo.'
       );
     }
+    setMenuVisible(false);
+    setPantallaExtra(null);
     setToken(newToken);
     setUsuario(user);
   };
@@ -119,6 +122,8 @@ export default function App() {
     setToken(null);
     setUsuario(null);
     setCambiosPendientes(0);
+    setMenuVisible(false);
+    setPantallaExtra(null);
   };
 
   if (restaurandoSesion) {
@@ -187,9 +192,12 @@ export default function App() {
             justifyContent: 'space-between'
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 30, height: 30, backgroundColor: colors.blue700, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 9 }}>
-                <Text style={{ color: colors.white, fontWeight: '900', fontSize: 16 }}>N</Text>
-              </View>
+              <Image
+                source={require('./assets/icon.png')}
+                accessibilityLabel="Logo de Nivia"
+                style={{ width: 36, height: 36, marginRight: 7 }}
+                resizeMode="contain"
+              />
               <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '900', letterSpacing: 1.2 }}>NIVIA</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
@@ -224,7 +232,6 @@ export default function App() {
         screenOptions={({ route }) => ({
           headerShown: false,
           tabBarHideOnKeyboard: true,
-          tabBarButton: ['Cuenta', 'Perfil'].includes(route.name) ? () => null : undefined,
           tabBarIcon: ({ color, size }) => {
             const icons = {
               Resumen: '⌂',
@@ -233,9 +240,7 @@ export default function App() {
               Categorías: '◇',
               Cuentas: '▣',
               Presupuestos: '◷',
-              Préstamos: '↗',
-              Cuenta: '○',
-              Perfil: '○'
+              Préstamos: '↗'
             };
             return (
               <View style={{
@@ -262,9 +267,11 @@ export default function App() {
             backgroundColor: colors.white,
             borderTopColor: colors.line,
             borderTopWidth: 1,
+            width: '100%',
             height: 65,
             paddingTop: 5,
             paddingBottom: 2,
+            paddingHorizontal: 0,
             elevation: 0
           },
           tabBarItemStyle: {
@@ -273,7 +280,9 @@ export default function App() {
             minWidth: 0,
             marginHorizontal: 0,
             marginVertical: 4,
-            paddingHorizontal: 0
+            paddingHorizontal: 0,
+            justifyContent: 'center',
+            alignItems: 'center'
           }
         })}
         >
@@ -298,12 +307,6 @@ export default function App() {
           </Tab.Screen>
           <Tab.Screen name="Cuentas">
             {(props) => <CuentasScreen {...props} token={token} />}
-          </Tab.Screen>
-          <Tab.Screen name="Cuenta">
-            {(props) => <ParejaScreen {...props} token={token} onLogout={handleLogout} />}
-          </Tab.Screen>
-          <Tab.Screen name="Perfil">
-            {(props) => <PerfilScreen {...props} usuario={usuario} onLogout={handleLogout} />}
           </Tab.Screen>
         </Tab.Navigator>
         <TouchableOpacity
@@ -337,8 +340,6 @@ export default function App() {
             <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800', marginBottom: 5 }}>Más de Nivia</Text>
             <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 14 }}>{usuario?.name || usuario?.email || 'Tu cuenta'}</Text>
             {[
-              ['Categorías', '◇', 'Categorías'],
-              ['Préstamos y deudas', '↗', 'Préstamos'],
               ['Cuenta compartida', '♡', 'Cuenta'],
               ['Mi perfil', '○', 'Perfil']
             ].map(([label, icon, destination]) => (
@@ -346,7 +347,7 @@ export default function App() {
                 key={destination}
                 onPress={() => {
                   setMenuVisible(false);
-                  navigationRef.navigate(destination);
+                  setPantallaExtra(destination);
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: colors.line }}
               >
@@ -357,6 +358,28 @@ export default function App() {
             ))}
           </View>
         </View>
+        </Modal>
+        <Modal
+          visible={pantallaExtra !== null}
+          animationType="slide"
+          onRequestClose={() => setPantallaExtra(null)}
+        >
+          <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.canvas }}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Volver a la aplicación"
+              onPress={() => setPantallaExtra(null)}
+              style={{ paddingHorizontal: 18, paddingVertical: 12, backgroundColor: colors.white }}
+            >
+              <Text style={{ color: colors.blue700, fontSize: 14, fontWeight: '700' }}>‹ Más de Nivia</Text>
+            </TouchableOpacity>
+            {pantallaExtra === 'Cuenta' && (
+              <ParejaScreen token={token} onLogout={handleLogout} />
+            )}
+            {pantallaExtra === 'Perfil' && (
+              <PerfilScreen usuario={usuario} onLogout={handleLogout} />
+            )}
+          </SafeAreaView>
         </Modal>
       </NavigationContainer>
     </SafeAreaProvider>

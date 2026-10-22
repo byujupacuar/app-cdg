@@ -22,6 +22,7 @@ const autenticarToken = (req, res, next) => {
 router.get('/', autenticarToken, async (req, res) => {
   try {
     const categorias = await prisma.category.findMany({
+      where: { userId: req.usuario.userId },
       orderBy: { name: 'asc' }
     });
     res.json({ exito: true, categorias });
@@ -43,7 +44,7 @@ router.post('/', autenticarToken, async (req, res) => {
     const tipoEnum = type && type.toUpperCase() === 'INGRESO' ? 'INGRESO' : 'GASTO';
 
     let categoria = await prisma.category.findFirst({
-      where: { name: name.trim() }
+      where: { name: name.trim(), userId: req.usuario.userId }
     });
 
     if (categoria) {
@@ -54,7 +55,8 @@ router.post('/', autenticarToken, async (req, res) => {
       data: {
         name: name.trim(),
         icon: icon || '🏷️',
-        type: tipoEnum
+        type: tipoEnum,
+        userId: req.usuario.userId
       }
     });
 
@@ -75,8 +77,15 @@ router.put('/:id', autenticarToken, async (req, res) => {
       return res.status(400).json({ error: 'El nombre es obligatorio.' });
     }
 
+    const categoriaExistente = await prisma.category.findFirst({
+      where: { id, userId: req.usuario.userId }
+    });
+    if (!categoriaExistente) {
+      return res.status(404).json({ error: 'No se encontró la categoría solicitada.' });
+    }
+
     const categoriaActualizada = await prisma.category.update({
-      where: { id },
+      where: { id: categoriaExistente.id },
       data: {
         name: name.trim(),
         icon: icon || '🏷️',
@@ -95,19 +104,30 @@ router.put('/:id', autenticarToken, async (req, res) => {
 router.delete('/:id', autenticarToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const categoria = await prisma.category.findFirst({
+      where: { id, userId: req.usuario.userId }
+    });
+
+    if (!categoria) {
+      return res.status(404).json({ error: 'No se encontró la categoría solicitada.' });
+    }
 
     // Verificar si hay transacciones asociadas
     const movimientosAsociados = await prisma.transaction.count({
-      where: { categoryId: id }
+      where: { categoryId: categoria.id }
     });
 
-    if (movimientosAsociados > 0) {
+    const presupuestosAsociados = await prisma.budget.count({
+      where: { categoryId: categoria.id }
+    });
+
+    if (movimientosAsociados > 0 || presupuestosAsociados > 0) {
       return res.status(400).json({ 
-        error: `No se puede eliminar la categoría porque tiene ${movimientosAsociados} movimiento(s) registrado(s). Reasigna los movimientos primero.` 
+        error: 'No se puede eliminar la categoría porque tiene movimientos o presupuestos asociados. Reasígnalos primero.'
       });
     }
 
-    await prisma.category.delete({ where: { id } });
+    await prisma.category.delete({ where: { id: categoria.id } });
 
     res.json({ exito: true, mensaje: 'Categoría eliminada correctamente.' });
   } catch (error) {

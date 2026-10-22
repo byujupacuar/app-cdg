@@ -336,7 +336,9 @@ export const iniciarSesion = async (credenciales) => {
     };
   } catch (error) {
     console.error("Error en iniciarSesion:", error.response?.data || error.message);
-    const mensajeError = error.response?.data?.error || "Credenciales inválidas.";
+    const mensajeError = error.response?.data?.mensaje
+      || error.response?.data?.error
+      || "No se pudo iniciar sesión. Verifica tu conexión e inténtalo de nuevo.";
     return { exito: false, mensaje: mensajeError };
   }
 };

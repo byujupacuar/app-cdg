@@ -22,6 +22,7 @@ import { colors } from '../theme';
 const tipos = [
   { value: 'EFECTIVO', label: 'Efectivo' },
   { value: 'BANCO', label: 'Banco' },
+  { value: 'DIGITAL', label: 'Billetera digital' },
   { value: 'DEBITO', label: 'Débito' },
   { value: 'CREDITO', label: 'Crédito' },
   { value: 'OTRO', label: 'Otro' }

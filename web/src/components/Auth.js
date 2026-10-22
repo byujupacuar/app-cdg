@@ -49,7 +49,7 @@ export default function Auth({ onLoginSuccess }) {
     <div className="auth-container">
       <div className="stitch-card auth-card">
         <div className="brand-header">
-          <span className="brand-logo">🌱</span>
+          <img className="brand-logo" src="/nivia-logo.png" alt="Logo de Nivia" />
           <h2>Nivia</h2>
           <p>Finanzas Personales & Pareja</p>
           <h3 className="auth-form-title">{modoRegistro ? 'Crear cuenta' : 'Iniciar sesión'}</h3>

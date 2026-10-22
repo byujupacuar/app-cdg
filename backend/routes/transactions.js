@@ -113,7 +113,7 @@ router.post('/', autenticarToken, async (req, res) => {
 
     // 3. Buscar o crear la categoría correspondiente
     let categoria = await prisma.category.findFirst({
-      where: { name: categoryName }
+      where: { name: categoryName, userId }
     });
 
     if (!categoria) {
@@ -121,7 +121,8 @@ router.post('/', autenticarToken, async (req, res) => {
         data: { 
           name: categoryName, 
           icon: '🏷️', 
-          type: tipoEnum 
+          type: tipoEnum,
+          userId
         }
       });
     }
@@ -304,7 +305,7 @@ router.put('/:id', autenticarToken, async (req, res) => {
     }
 
     const categoria = await prisma.category.findFirst({
-      where: { name: nombreCategoria, type: tipoEnum }
+      where: { name: nombreCategoria, type: tipoEnum, userId }
     });
 
     if (!categoria) {

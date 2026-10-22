@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   View, 
   Text, 
+  Image,
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
@@ -21,13 +22,21 @@ export default function AuthScreen({ onLoginSuccess }) {
 
   // 1. Manejo de Registro / Login con Correo y Contraseña
   const handleSubmit = async () => {
-    if (!email || !password || (modoRegistro && !name)) {
+    const emailNormalizado = email.trim().toLowerCase();
+    const nombreNormalizado = name.trim();
+    const passwordNormalizada = password.trim();
+
+    if (!emailNormalizado || !passwordNormalizada || (modoRegistro && !nombreNormalizado)) {
       Alert.alert("Campos incompletos", "Por favor completa todos los campos requeridos.");
       return;
     }
 
     if (modoRegistro) {
-      const res = await registrarUsuario({ name, email, password });
+      const res = await registrarUsuario({
+        name: nombreNormalizado,
+        email: emailNormalizado,
+        password: passwordNormalizada
+      });
       if (res.exito) {
         Alert.alert("¡Bienvenido a Nivia!", "Registro completado con éxito.");
         await onLoginSuccess(res.token, res.usuario);
@@ -35,7 +44,7 @@ export default function AuthScreen({ onLoginSuccess }) {
         Alert.alert("Error de Registro", res.mensaje);
       }
     } else {
-      const res = await iniciarSesion({ email, password });
+      const res = await iniciarSesion({ email: emailNormalizado, password });
       if (res.exito) {
         Alert.alert("¡Bienvenido!", `Sesión iniciada como ${res.usuario.email}`);
         await onLoginSuccess(res.token, res.usuario);
@@ -71,6 +80,12 @@ export default function AuthScreen({ onLoginSuccess }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
+          <Image
+            source={require('../assets/icon.png')}
+            accessibilityLabel="Logo de Nivia"
+            style={styles.appLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.appTitle}>Nivia</Text>
           <Text style={styles.appSub}>Finanzas Personales y de Pareja</Text>
 
@@ -144,6 +159,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
   scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 24, elevation: 0 },
+  appLogo: { width: 112, height: 112, alignSelf: 'center', marginBottom: 4 },
   appTitle: { fontSize: 32, fontWeight: '700', color: colors.green950, textAlign: 'center', letterSpacing: -1 },
   appSub: { fontSize: 12, color: colors.muted, textAlign: 'center', marginBottom: 22 },
   title: { fontSize: 17, fontWeight: '700', color: colors.green950, marginBottom: 15, textAlign: 'center' },

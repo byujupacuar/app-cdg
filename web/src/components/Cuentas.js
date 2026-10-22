@@ -15,6 +15,7 @@ const currency = (value) => new Intl.NumberFormat('es', {
 const etiquetasTipo = {
   EFECTIVO: 'Efectivo',
   BANCO: 'Cuenta bancaria',
+  DIGITAL: 'Billetera digital',
   DEBITO: 'Tarjeta de débito',
   CREDITO: 'Tarjeta de crédito',
   TARJETA: 'Tarjeta de débito'
@@ -271,6 +272,7 @@ export default function Cuentas({ onUpdated }) {
             <select id="account-type" value={tipo} onChange={(event) => setTipo(event.target.value)}>
               <option value="EFECTIVO">Efectivo</option>
               <option value="BANCO">Cuenta bancaria</option>
+              <option value="DIGITAL">Billetera digital</option>
               <option value="DEBITO">Tarjeta de débito</option>
               <option value="CREDITO">Tarjeta de crédito</option>
               <option value="OTRO">Otro</option>

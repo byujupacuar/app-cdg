@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts');
+const { crearCuentasFinancierasPorDefecto } = require('../utils/defaultFinancialAccounts');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
 const TIPOS_CUENTA_PREDEFINIDOS = new Set(['EFECTIVO', 'BANCO', 'DEBITO', 'CREDITO']);
@@ -31,6 +32,7 @@ router.get('/financieras', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
     }
 
+    await crearCuentasFinancierasPorDefecto(prisma, relacion.accountId);
     const resumen = await obtenerSaldosCuentasFinancieras(prisma, relacion.accountId);
     res.json({ exito: true, ...resumen });
   } catch (error) {

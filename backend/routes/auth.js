@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { OAuth2Client } = require('google-auth-library');
+const { crearCategoriasPorDefecto } = require('../utils/defaultCategories');
+const { crearCuentasFinancierasPorDefecto } = require('../utils/defaultFinancialAccounts');
 
 const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '')
   .split(',')
@@ -76,13 +78,8 @@ router.post('/google', async (req, res) => {
           }
         });
 
-        await tx.financialAccount.create({
-          data: {
-            name: 'Efectivo',
-            type: 'EFECTIVO',
-            householdAccountId: account.id
-          }
-        });
+        await crearCuentasFinancierasPorDefecto(tx, account.id);
+        await crearCategoriasPorDefecto(tx, nuevoUser.id);
 
         return nuevoUser;
       });
@@ -122,21 +119,25 @@ router.post('/google', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const passwordNormalizada = typeof password === 'string' ? password.trim() : '';
 
-    if (!email || !password || !name) {
+    if (!emailNormalizado || !passwordNormalizada || !name) {
       return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios.' });
     }
 
-    const usuarioExistente = await prisma.user.findUnique({ where: { email } });
+    const usuarioExistente = await prisma.user.findFirst({
+      where: { email: { equals: emailNormalizado, mode: 'insensitive' } }
+    });
     if (usuarioExistente) {
       return res.status(400).json({ error: 'El correo electrónico ya está registrado.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(passwordNormalizada, 10);
 
     const nuevoUsuario = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { name, email, password: hashedPassword },
+        data: { name, email: emailNormalizado, password: hashedPassword },
       });
 
       const account = await tx.account.create({
@@ -147,13 +148,8 @@ router.post('/register', async (req, res) => {
         data: { userId: user.id, accountId: account.id, role: 'OWNER' },
       });
 
-      await tx.financialAccount.create({
-        data: {
-          name: 'Efectivo',
-          type: 'EFECTIVO',
-          householdAccountId: account.id
-        }
-      });
+      await crearCuentasFinancierasPorDefecto(tx, account.id);
+      await crearCategoriasPorDefecto(tx, user.id);
 
       return user;
     });
@@ -190,15 +186,19 @@ router.post('/login', async (req, res) => {
     // Normalizar correo recibido
     const emailNormalizado = String(email).trim().toLowerCase();
 
-    const usuario = await prisma.user.findUnique({ 
-      where: { email: emailNormalizado } 
+    const usuario = await prisma.user.findFirst({
+      where: { email: { equals: emailNormalizado, mode: 'insensitive' } }
     });
 
     if (!usuario || !usuario.password) {
       return res.status(401).json({ exito: false, mensaje: 'Credenciales inválidas.' });
     }
 
-    const esCorrecto = await bcrypt.compare(String(password).trim(), usuario.password);
+    const passwordIngresada = String(password);
+    const passwordNormalizada = passwordIngresada.trim();
+    const esCorrecto = await bcrypt.compare(passwordIngresada, usuario.password)
+      || (passwordIngresada !== passwordNormalizada
+        && await bcrypt.compare(passwordNormalizada, usuario.password));
     if (!esCorrecto) {
       return res.status(401).json({ exito: false, mensaje: 'Credenciales inválidas.' });
     }

@@ -102,12 +102,12 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
     }
 
     let categoria = await prisma.category.findFirst({
-      where: { name: categoryName || 'General', type: tipo }
+      where: { name: categoryName || 'General', type: tipo, userId }
     });
 
     if (!categoria) {
       categoria = await prisma.category.create({
-        data: { name: categoryName || 'General', icon: '🏷️', type: tipo }
+        data: { name: categoryName || 'General', icon: '🏷️', type: tipo, userId }
       });
     }
 
@@ -158,7 +158,7 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
     }
 
     const [categoria, cuentaFinanciera] = await Promise.all([
-      prisma.category.findFirst({ where: { name: categoryName, type } }),
+      prisma.category.findFirst({ where: { name: categoryName, type, userId } }),
       financialAccountId
         ? prisma.financialAccount.findFirst({
           where: { id: financialAccountId, householdAccountId: accountId }
