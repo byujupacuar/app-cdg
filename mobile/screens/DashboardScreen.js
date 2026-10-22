@@ -43,15 +43,21 @@ export default function DashboardScreen({ token, navigation, usuario }) {
   const resumen = datos?.resumen || {};
   const ingresos = Number(resumen.totalIngresos || 0);
   const gastos = Number(resumen.totalGastos || 0);
-  const balance = Number(resumen.balanceTotal ?? ingresos - gastos);
   const cuentas = datos?.resumenCuentas || {};
+  const listaCuentas = cuentas.cuentas || [];
+  const saldoInicial = listaCuentas.reduce((total, cuenta) => {
+    const saldo = Number(cuenta.initialBalance) || 0;
+    return total + (cuenta.esCredito ? -saldo : saldo);
+  }, 0);
+  const flujoMensual = ingresos - gastos;
+  const balance = saldoInicial + flujoMensual;
   const hoy = new Date();
   const haceUnaSemana = new Date(hoy);
   haceUnaSemana.setDate(hoy.getDate() - 6);
   const gastosSemanales = movimientos
     .filter((item) => item.type === 'GASTO' && new Date(item.date) >= haceUnaSemana && new Date(item.date) <= hoy)
     .reduce((total, item) => total + Number(item.amount || 0), 0);
-  const tasaAhorro = ingresos > 0 ? (balance / ingresos) * 100 : null;
+  const tasaAhorro = ingresos > 0 ? (flujoMensual / ingresos) * 100 : null;
   const nombreCuenta = typeof datos?.cuenta === 'string' ? datos.cuenta : datos?.cuenta?.name;
 
   if (loading) {
@@ -82,12 +88,34 @@ export default function DashboardScreen({ token, navigation, usuario }) {
         </View>
       </View>
 
+      <View style={styles.currentBalances}>
+        <View style={styles.cardLabelRow}>
+          <Text style={styles.sectionTitle}>Resumen de cuentas</Text>
+          <Text style={styles.seeAll} onPress={() => navigation.navigate('Cuentas')}>Ver cuentas →</Text>
+        </View>
+        <View style={styles.currentBalanceItems}>
+          <View style={styles.currentBalanceItem}>
+            <Text style={styles.currentBalanceLabel}>Disponible</Text>
+            <Text style={styles.currentBalanceAmount}>{moneda(cuentas.totalDisponible)}</Text>
+          </View>
+          <View style={styles.currentBalanceItem}>
+            <Text style={styles.currentBalanceLabel}>Patrimonio neto</Text>
+            <Text style={styles.currentBalanceAmount}>{moneda(cuentas.patrimonioNeto)}</Text>
+          </View>
+          <View style={styles.currentBalanceItem}>
+            <Text style={styles.currentBalanceLabel}>Deuda de tarjetas</Text>
+            <Text style={[styles.currentBalanceAmount, styles.currentDebtAmount]}>{moneda(cuentas.deudaTarjetas)}</Text>
+          </View>
+        </View>
+      </View>
+
       <View style={styles.balanceCard}>
         <View style={styles.cardLabelRow}>
-          <Text style={styles.balanceLabel}>Balance del mes</Text>
+          <Text style={styles.balanceLabel}>Saldo del mes</Text>
           <Text style={styles.monthTag}>{hoy.toLocaleDateString('es', { month: 'long' })}</Text>
         </View>
         <Text style={styles.balanceAmount}>{moneda(balance)}</Text>
+        <Text style={styles.openingBalanceNote}>Saldo inicial: {moneda(saldoInicial)}</Text>
         <View style={styles.metricsRow}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Ingresos</Text>
@@ -98,17 +126,6 @@ export default function DashboardScreen({ token, navigation, usuario }) {
             <Text style={styles.metricLabel}>Gastos</Text>
             <Text style={styles.expense}>{moneda(gastos)}</Text>
           </View>
-        </View>
-      </View>
-
-      <View style={styles.currentBalances}>
-        <View style={styles.currentBalanceItem}>
-          <Text style={styles.currentBalanceLabel}>Disponible actual</Text>
-          <Text style={styles.currentBalanceAmount}>{moneda(cuentas.totalDisponible)}</Text>
-        </View>
-        <View style={styles.currentBalanceItem}>
-          <Text style={styles.currentBalanceLabel}>Patrimonio neto</Text>
-          <Text style={styles.currentBalanceAmount}>{moneda(cuentas.patrimonioNeto)}</Text>
         </View>
       </View>
 
@@ -169,7 +186,7 @@ export default function DashboardScreen({ token, navigation, usuario }) {
         <Text style={styles.insightTitle}>Tu progreso</Text>
         <Text style={styles.insightText}>
           {ingresos > 0
-            ? balance >= 0
+            ? flujoMensual >= 0
               ? `Ahorraste ${tasaAhorro.toFixed(0)}% de tus ingresos este mes.`
               : 'Tus gastos superaron tus ingresos este mes.'
             : 'Registra ingresos y gastos para ver tu progreso.'}
@@ -213,14 +230,17 @@ const styles = StyleSheet.create({
   greeting: { color: colors.ink, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
   caption: { color: colors.muted, fontSize: 12, marginTop: 5 },
   balanceCard: { backgroundColor: colors.blue700, borderRadius: 22, padding: 22, marginBottom: 16 },
-  currentBalances: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, padding: 15 },
+  currentBalances: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, marginBottom: 14, padding: 15 },
+  currentBalanceItems: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
   currentBalanceItem: { flex: 1 },
-  currentBalanceLabel: { color: colors.muted, fontSize: 10, fontWeight: '600' },
-  currentBalanceAmount: { color: colors.ink, fontSize: 16, fontWeight: '800', marginTop: 5 },
+  currentBalanceLabel: { color: colors.muted, fontSize: 9, fontWeight: '600' },
+  currentBalanceAmount: { color: colors.ink, fontSize: 17, fontWeight: '800', marginTop: 5 },
+  currentDebtAmount: { color: colors.red },
   cardLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: '#dbeafe', fontSize: 13, fontWeight: '600' },
   monthTag: { color: colors.white, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   balanceAmount: { color: colors.white, fontSize: 34, fontWeight: '800', letterSpacing: -0.8, marginTop: 10 },
+  openingBalanceNote: { color: '#dbeafe', fontSize: 10, marginTop: 4 },
   metricsRow: { flexDirection: 'row', alignItems: 'center', borderTopColor: 'rgba(255,255,255,0.24)', borderTopWidth: 1, marginTop: 18, paddingTop: 16 },
   metric: { flex: 1 },
   metricLabel: { color: '#dbeafe', fontSize: 11, marginBottom: 5 },

@@ -75,14 +75,19 @@ export default function Dashboard({ refreshKey, onNavigate, userName }) {
   }
 
   const resumen = datos?.resumen || {};
-  const balance = Number(resumen.balanceTotal) || 0;
   const ingresos = Number(resumen.totalIngresos) || 0;
   const gastos = Number(resumen.totalGastos) || 0;
   const gastosPorCategoria = datos?.gastosPorCategoria || [];
   const movimientos = datos?.ultimosMovimientos || [];
   const resumenCuentas = datos?.resumenCuentas || {};
   const cuentas = resumenCuentas.cuentas || [];
-  const ahorroPorcentaje = ingresos > 0 ? (balance / ingresos) * 100 : null;
+  const saldoInicial = cuentas.reduce((total, cuenta) => {
+    const saldo = Number(cuenta.initialBalance) || 0;
+    return total + (cuenta.esCredito ? -saldo : saldo);
+  }, 0);
+  const flujoMensual = ingresos - gastos;
+  const balance = saldoInicial + flujoMensual;
+  const ahorroPorcentaje = ingresos > 0 ? (flujoMensual / ingresos) * 100 : null;
   const nombreCorto = userName?.trim().split(/\s+/)[0];
   const ingresosSemanales = Number(flujoSemanal.resumen?.totalIngresos) || 0;
   const gastosSemanales = Number(flujoSemanal.resumen?.totalGastos) || 0;
@@ -118,18 +123,53 @@ export default function Dashboard({ refreshKey, onNavigate, userName }) {
 
       {error && <div className="inline-error" role="alert">{error}</div>}
 
+      <section className="panel-card account-overview">
+        <div className="panel-heading">
+          <div>
+            <span className="panel-kicker">TUS CUENTAS</span>
+            <h2>Resumen de cuentas</h2>
+          </div>
+          <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
+            Administrar <span aria-hidden="true">→</span>
+          </button>
+        </div>
+        {cuentas.length === 0 ? (
+          <div className="panel-empty">
+            <span>＋</span>
+            <p>Añade una cuenta para consultar tus saldos.</p>
+            <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>Añadir una cuenta →</button>
+          </div>
+        ) : (
+          <>
+            <div className="account-overview-totals">
+              <div><span>Disponible</span><strong>{currency(resumenCuentas.totalDisponible)}</strong></div>
+              <div><span>Patrimonio neto</span><strong>{currency(resumenCuentas.patrimonioNeto)}</strong></div>
+              <div><span>Deuda de tarjetas</span><strong className="amount-negative">{currency(resumenCuentas.deudaTarjetas)}</strong></div>
+            </div>
+            <div className="account-overview-list">
+              {cuentas.map((cuenta) => (
+                <div className="account-overview-item" key={cuenta.id}>
+                  <span><strong>{cuenta.name}</strong>                  <small>{cuenta.esDebitoVinculado ? `Débito · ${cuenta.cuentaVinculada}` : cuenta.type === 'CREDITO' ? 'Tarjeta de crédito' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Cuenta bancaria' : cuenta.type === 'DEBITO' ? 'Tarjeta de débito' : cuenta.type}</small></span>
+                  <strong className={cuenta.esCredito ? 'amount-negative' : 'account-amount'}>
+                    {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
+                    {cuenta.esCredito && <small> deuda</small>}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
       <section className="summary-grid" aria-label="Resumen financiero">
         <article className="summary-card summary-balance">
           <div className="summary-card-top">
-            <span className="summary-label">Balance del mes</span>
+            <span className="summary-label">Saldo del mes</span>
             <span className="summary-icon balance-icon">◈</span>
           </div>
           <strong className={balance >= 0 ? 'amount-positive' : 'amount-negative'}>{currency(balance)}</strong>
-          <span className="summary-footnote">
-            {ahorroPorcentaje === null
-              ? 'Ingresos menos gastos'
-              : `${ahorroPorcentaje.toFixed(1)}% de ingresos retenidos`}
-          </span>
+          <span className="summary-footnote">Saldo inicial: {currency(saldoInicial)}</span>
+          {ahorroPorcentaje !== null && <span className="summary-footnote">{ahorroPorcentaje.toFixed(1)}% de ingresos retenidos</span>}
         </article>
         <article className="summary-card">
           <div className="summary-card-top">
@@ -176,44 +216,6 @@ export default function Dashboard({ refreshKey, onNavigate, userName }) {
           </div>
         ) : (
           <p className="weekly-cashflow-message">No fue posible consultar el flujo de estos días.</p>
-        )}
-      </section>
-
-      <section className="panel-card account-overview">
-        <div className="panel-heading">
-          <div>
-            <span className="panel-kicker">TUS CUENTAS</span>
-            <h2>Cuentas</h2>
-          </div>
-          <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
-            Administrar <span aria-hidden="true">→</span>
-          </button>
-        </div>
-        {cuentas.length === 0 ? (
-          <div className="panel-empty">
-            <span>＋</span>
-            <p>Añade una cuenta para consultar tus saldos.</p>
-            <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>Añadir una cuenta →</button>
-          </div>
-        ) : (
-          <>
-            <div className="account-overview-list">
-              {cuentas.map((cuenta) => (
-                <div className="account-overview-item" key={cuenta.id}>
-                  <span><strong>{cuenta.name}</strong>                  <small>{cuenta.esDebitoVinculado ? `Débito · ${cuenta.cuentaVinculada}` : cuenta.type === 'CREDITO' ? 'Tarjeta de crédito' : cuenta.type === 'EFECTIVO' ? 'Efectivo' : cuenta.type === 'BANCO' ? 'Cuenta bancaria' : cuenta.type === 'DEBITO' ? 'Tarjeta de débito' : cuenta.type}</small></span>
-                  <strong className={cuenta.esCredito ? 'amount-negative' : 'account-amount'}>
-                    {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
-                    {cuenta.esCredito && <small> deuda</small>}
-                  </strong>
-                </div>
-              ))}
-            </div>
-            <div className="account-overview-totals">
-              <span>Disponible: <strong>{currency(resumenCuentas.totalDisponible)}</strong></span>
-              <span>Deuda de tarjetas: <strong className="amount-negative">{currency(resumenCuentas.deudaTarjetas)}</strong></span>
-              <span>Patrimonio neto: <strong>{currency(resumenCuentas.patrimonioNeto)}</strong></span>
-            </div>
-          </>
         )}
       </section>
 
