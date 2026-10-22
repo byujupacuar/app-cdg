@@ -551,6 +551,31 @@ export const crearCuentaFinanciera = async (datos, token) => {
   }
 };
 
+export const actualizarCuentaFinanciera = async (id, datos, token) => {
+  try {
+    const respuesta = await axios.put(`${API_URL}/api/cuentas/financieras/${id}`, datos, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return { exito: true, cuenta: respuesta.data.cuenta };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || 'No se pudo actualizar la cuenta.' };
+  }
+};
+
+export const eliminarCuentaFinanciera = async (id, token) => {
+  try {
+    const respuesta = await axios.delete(`${API_URL}/api/cuentas/financieras/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return { exito: true, mensaje: respuesta.data.mensaje };
+  } catch (error) {
+    return { exito: false, mensaje: error.response?.data?.error || 'No se pudo eliminar la cuenta.' };
+  }
+};
+
 export const ajustarSaldoCuentaFinanciera = async (id, saldoActual, token) => {
   try {
     const respuesta = await axios.put(`${API_URL}/api/cuentas/financieras/${id}/saldo`, { saldoActual }, {

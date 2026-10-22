@@ -543,6 +543,8 @@ button { color: inherit; }
 .account-adjust-form input { background: #fff; border: 1px solid var(--line); border-radius: 7px; min-height: 34px; padding: 5px 8px; }
 .account-adjust-form .button-primary { font-size: 10px; min-height: 34px; padding: 0 9px; }
 .account-adjust-button { white-space: nowrap; }
+.account-delete-button { color: var(--red); white-space: nowrap; }
+.account-delete-button:disabled { cursor: wait; opacity: .6; }
 .account-overview { margin-bottom: 16px; }
 .account-overview .panel-heading { margin-bottom: 12px; }
 .account-overview-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 18px; }

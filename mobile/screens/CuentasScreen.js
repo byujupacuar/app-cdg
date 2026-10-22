@@ -12,8 +12,10 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import {
   ajustarSaldoCuentaFinanciera,
+  actualizarCuentaFinanciera,
   crearCuentaFinanciera,
   crearTransferencia,
+  eliminarCuentaFinanciera,
   obtenerCuentasFinancieras,
   obtenerTransferencias
 } from '../api';
@@ -43,6 +45,9 @@ export default function CuentasScreen({ token }) {
   const [saldoInicial, setSaldoInicial] = useState('0');
   const [cuentaAjustando, setCuentaAjustando] = useState('');
   const [saldoAjustado, setSaldoAjustado] = useState('');
+  const [cuentaEditando, setCuentaEditando] = useState('');
+  const [nombreEditado, setNombreEditado] = useState('');
+  const [tipoEditado, setTipoEditado] = useState('');
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
   const [montoTransferencia, setMontoTransferencia] = useState('');
@@ -153,6 +158,58 @@ export default function CuentasScreen({ token }) {
     await cargarDatos();
   };
 
+  const iniciarEdicion = (cuenta) => {
+    setCuentaEditando(cuenta.id);
+    setNombreEditado(cuenta.name);
+    setTipoEditado(cuenta.type);
+    setCuentaAjustando('');
+  };
+
+  const handleActualizarCuenta = async (cuenta) => {
+    if (!nombreEditado.trim()) {
+      Alert.alert('Nombre requerido', 'Ingresa un nombre para la cuenta.');
+      return;
+    }
+    setGuardando(true);
+    const res = await actualizarCuentaFinanciera(
+      cuenta.id,
+      { name: nombreEditado.trim(), type: tipoEditado },
+      token
+    );
+    setGuardando(false);
+    if (!res.exito) {
+      Alert.alert('No se pudo actualizar', res.mensaje);
+      return;
+    }
+    setCuentaEditando('');
+    await cargarDatos();
+  };
+
+  const confirmarEliminacionCuenta = (cuenta) => {
+    Alert.alert(
+      'Eliminar cuenta',
+      `¿Eliminar "${cuenta.name}"? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setGuardando(true);
+            const res = await eliminarCuentaFinanciera(cuenta.id, token);
+            setGuardando(false);
+            if (!res.exito) {
+              Alert.alert('No se pudo eliminar', res.mensaje);
+              return;
+            }
+            if (cuentaEditando === cuenta.id) setCuentaEditando('');
+            await cargarDatos();
+          }
+        }
+      ]
+    );
+  };
+
   const renderAccountChoices = (seleccionada, onSelect, excluida, soloBancos = false) => (
     <View style={styles.opcionesCuentas}>
       {cuentas.filter((cuenta) => cuenta.id !== excluida && cuenta.type !== 'DEBITO' && (!soloBancos || cuenta.type === 'BANCO')).map((cuenta) => (
@@ -222,7 +279,43 @@ export default function CuentasScreen({ token }) {
                   <Text style={styles.ajustarTexto}>Ajustar</Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity style={styles.ajustarBoton} onPress={() => iniciarEdicion(cuenta)}>
+                <Text style={styles.ajustarTexto}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ajustarBoton} onPress={() => confirmarEliminacionCuenta(cuenta)}>
+                <Text style={styles.eliminarTexto}>Eliminar</Text>
+              </TouchableOpacity>
             </View>
+            {cuentaEditando === cuenta.id && (
+              <View style={styles.ajusteSaldo}>
+                <Text style={styles.label}>Nombre</Text>
+                <TextInput style={styles.input} value={nombreEditado} onChangeText={setNombreEditado} maxLength={60} />
+                <Text style={styles.label}>Tipo</Text>
+                {cuenta.type === 'DEBITO' ? (
+                  <Text style={styles.textoAyuda}>El tipo de una tarjeta de débito vinculada no se puede cambiar.</Text>
+                ) : (
+                  <View style={styles.opcionesCuentas}>
+                    {[...tipos.filter((item) => item.value !== 'DEBITO'), ...(tipos.some((item) => item.value === cuenta.type) ? [] : [{ value: cuenta.type, label: etiquetaTipo(cuenta.type) }])].map((item) => (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={[styles.opcionCuenta, tipoEditado === item.value && styles.opcionCuentaActiva]}
+                        onPress={() => setTipoEditado(item.value)}
+                      >
+                        <Text style={[styles.opcionCuentaTexto, tipoEditado === item.value && styles.opcionCuentaTextoActivo]}>{item.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                <View style={styles.botonesAjuste}>
+                  <TouchableOpacity style={styles.boton} onPress={() => handleActualizarCuenta(cuenta)} disabled={guardando}>
+                    <Text style={styles.botonTexto}>Guardar cambios</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setCuentaEditando('')}>
+                    <Text style={styles.ajustarTexto}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             {cuentaAjustando === cuenta.id && (
               <View style={styles.ajusteSaldo}>
                 <Text style={styles.label}>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'}</Text>
@@ -356,6 +449,7 @@ const styles = StyleSheet.create({
   saldoCuenta: { color: colors.blue700, fontSize: 12, fontWeight: '700' },
   ajustarBoton: { marginLeft: 8, padding: 5 },
   ajustarTexto: { color: colors.blue700, fontSize: 10, fontWeight: '700' },
+  eliminarTexto: { color: colors.red, fontSize: 10, fontWeight: '700' },
   ajusteSaldo: { borderBottomColor: colors.line, borderBottomWidth: 1, paddingBottom: 11 },
   botonesAjuste: { alignItems: 'center', flexDirection: 'row', gap: 14 },
   label: { color: colors.ink, fontSize: 11, fontWeight: '700', marginBottom: 6, marginTop: 7 },

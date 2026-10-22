@@ -4,10 +4,9 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts');
-const { crearCuentasFinancierasPorDefecto } = require('../utils/defaultFinancialAccounts');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
-const TIPOS_CUENTA_PREDEFINIDOS = new Set(['EFECTIVO', 'BANCO', 'DEBITO', 'CREDITO']);
+const TIPOS_CUENTA_PREDEFINIDOS = new Set(['EFECTIVO', 'BANCO', 'DIGITAL', 'DEBITO', 'CREDITO']);
 // Middleware de autenticación JWT
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -32,7 +31,6 @@ router.get('/financieras', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
     }
 
-    await crearCuentasFinancierasPorDefecto(prisma, relacion.accountId);
     const resumen = await obtenerSaldosCuentasFinancieras(prisma, relacion.accountId);
     res.json({ exito: true, ...resumen });
   } catch (error) {
@@ -116,6 +114,105 @@ router.post('/financieras', autenticarToken, async (req, res) => {
 
     console.error('Error al crear cuenta financiera:', error);
     res.status(500).json({ error: 'Error al crear la cuenta financiera.' });
+  }
+});
+
+router.put('/financieras/:id', autenticarToken, async (req, res) => {
+  try {
+    const nombre = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const tipoEntrada = typeof req.body.type === 'string' ? req.body.type.trim() : '';
+    const tipo = TIPOS_CUENTA_PREDEFINIDOS.has(tipoEntrada.toUpperCase())
+      ? tipoEntrada.toUpperCase()
+      : tipoEntrada;
+
+    if (!nombre || nombre.length > 60 || !tipo || tipo.length > 30) {
+      return res.status(400).json({ error: 'Ingresa un nombre y tipo válidos.' });
+    }
+
+    const relacion = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+    if (!relacion) {
+      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
+    }
+
+    const cuenta = await prisma.financialAccount.findFirst({
+      where: { id: req.params.id, householdAccountId: relacion.accountId }
+    });
+    if (!cuenta) {
+      return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
+    }
+
+    if (tipo !== cuenta.type && (tipo === 'DEBITO' || cuenta.type === 'DEBITO')) {
+      return res.status(400).json({ error: 'Las tarjetas de débito vinculadas no se pueden cambiar de tipo.' });
+    }
+
+    if (tipo !== cuenta.type) {
+      const [movimientos, transferenciasSalida, transferenciasEntrada, debitosVinculados] = await Promise.all([
+        prisma.transaction.count({ where: { financialAccountId: cuenta.id } }),
+        prisma.financialAccountTransfer.count({ where: { fromFinancialAccountId: cuenta.id } }),
+        prisma.financialAccountTransfer.count({ where: { toFinancialAccountId: cuenta.id } }),
+        prisma.financialAccount.count({ where: { linkedFinancialAccountId: cuenta.id } })
+      ]);
+      if (movimientos || transferenciasSalida || transferenciasEntrada || debitosVinculados) {
+        return res.status(409).json({
+          error: 'No se puede cambiar el tipo porque la cuenta tiene movimientos, transferencias o tarjetas vinculadas.'
+        });
+      }
+    }
+
+    const cuentaActualizada = await prisma.financialAccount.update({
+      where: { id: cuenta.id },
+      data: { name: nombre, type: tipo }
+    });
+    res.json({ exito: true, cuenta: cuentaActualizada });
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Ya existe una cuenta con ese nombre.' });
+    }
+    console.error('Error al editar cuenta financiera:', error);
+    res.status(500).json({ error: 'Error al actualizar la cuenta financiera.' });
+  }
+});
+
+router.delete('/financieras/:id', autenticarToken, async (req, res) => {
+  try {
+    const relacion = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+    if (!relacion) {
+      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
+    }
+
+    const cuenta = await prisma.financialAccount.findFirst({
+      where: { id: req.params.id, householdAccountId: relacion.accountId }
+    });
+    if (!cuenta) {
+      return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
+    }
+
+    const [movimientos, transferenciasSalida, transferenciasEntrada, debitosVinculados] = await Promise.all([
+      prisma.transaction.count({ where: { financialAccountId: cuenta.id } }),
+      prisma.financialAccountTransfer.count({ where: { fromFinancialAccountId: cuenta.id } }),
+      prisma.financialAccountTransfer.count({ where: { toFinancialAccountId: cuenta.id } }),
+      prisma.financialAccount.count({ where: { linkedFinancialAccountId: cuenta.id } })
+    ]);
+    if (movimientos || transferenciasSalida || transferenciasEntrada || debitosVinculados) {
+      return res.status(409).json({
+        error: 'No se puede eliminar la cuenta porque tiene movimientos, transferencias o tarjetas vinculadas.'
+      });
+    }
+
+    await prisma.financialAccount.delete({ where: { id: cuenta.id } });
+    res.json({ exito: true, mensaje: 'Cuenta eliminada correctamente.' });
+  } catch (error) {
+    if (error.code === 'P2003' || error.code === 'P2025') {
+      return res.status(409).json({
+        error: 'No se puede eliminar la cuenta porque tiene movimientos, transferencias o tarjetas vinculadas.'
+      });
+    }
+    console.error('Error al eliminar cuenta financiera:', error);
+    res.status(500).json({ error: 'Error al eliminar la cuenta financiera.' });
   }
 });
 

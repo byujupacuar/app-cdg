@@ -66,6 +66,16 @@ export const crearCuentaFinanciera = async (datos) => {
   return res.data;
 };
 
+export const actualizarCuentaFinanciera = async (id, datos) => {
+  const res = await api.put(`/api/cuentas/financieras/${id}`, datos);
+  return res.data;
+};
+
+export const eliminarCuentaFinanciera = async (id) => {
+  const res = await api.delete(`/api/cuentas/financieras/${id}`);
+  return res.data;
+};
+
 export const ajustarSaldoCuentaFinanciera = async (id, saldoActual) => {
   const res = await api.put(`/api/cuentas/financieras/${id}/saldo`, { saldoActual });
   return res.data;

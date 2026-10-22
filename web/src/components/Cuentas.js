@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ajustarSaldoCuentaFinanciera,
+  actualizarCuentaFinanciera,
   crearCuentaFinanciera,
   crearTransferencia,
+  eliminarCuentaFinanciera,
   obtenerCuentasFinancieras,
   obtenerTransferencias
 } from '../services/api';
@@ -33,6 +35,9 @@ export default function Cuentas({ onUpdated }) {
   const [saldoInicial, setSaldoInicial] = useState('0');
   const [cuentaAjustando, setCuentaAjustando] = useState('');
   const [saldoAjustado, setSaldoAjustado] = useState('');
+  const [cuentaEditando, setCuentaEditando] = useState('');
+  const [nombreEditado, setNombreEditado] = useState('');
+  const [tipoEditado, setTipoEditado] = useState('');
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
   const [montoTransferencia, setMontoTransferencia] = useState('');
@@ -162,6 +167,59 @@ export default function Cuentas({ onUpdated }) {
     }
   };
 
+  const iniciarEdicion = (cuenta) => {
+    setCuentaEditando(cuenta.id);
+    setNombreEditado(cuenta.name);
+    setTipoEditado(cuenta.type);
+    setCuentaAjustando('');
+    setError('');
+    setMensaje('');
+  };
+
+  const handleActualizarCuenta = async (event, cuenta) => {
+    event.preventDefault();
+    setError('');
+    setMensaje('');
+    if (!nombreEditado.trim()) {
+      setError('Ingresa un nombre para la cuenta.');
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      await actualizarCuentaFinanciera(cuenta.id, {
+        name: nombreEditado.trim(),
+        type: tipoEditado
+      });
+      setCuentaEditando('');
+      setMensaje('Cuenta actualizada.');
+      await cargarDatos();
+      onUpdated?.();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo actualizar la cuenta.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminarCuenta = async (cuenta) => {
+    if (!window.confirm(`¿Eliminar la cuenta "${cuenta.name}"? Esta acción no se puede deshacer.`)) return;
+    setError('');
+    setMensaje('');
+    setGuardando(true);
+    try {
+      await eliminarCuentaFinanciera(cuenta.id);
+      if (cuentaEditando === cuenta.id) setCuentaEditando('');
+      setMensaje('Cuenta eliminada.');
+      await cargarDatos();
+      onUpdated?.();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo eliminar la cuenta.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return (
     <div className="financial-accounts-page">
       <section className="categories-intro">
@@ -234,6 +292,56 @@ export default function Cuentas({ onUpdated }) {
                     >
                       Ajustar
                     </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-button account-adjust-button"
+                    onClick={() => iniciarEdicion(cuenta)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button account-delete-button"
+                    onClick={() => handleEliminarCuenta(cuenta)}
+                    disabled={guardando}
+                  >
+                    Eliminar
+                  </button>
+                  {cuentaEditando === cuenta.id && (
+                    <form className="account-adjust-form" onSubmit={(event) => handleActualizarCuenta(event, cuenta)}>
+                      <label htmlFor={`account-name-${cuenta.id}`}>Nombre</label>
+                      <input
+                        id={`account-name-${cuenta.id}`}
+                        value={nombreEditado}
+                        maxLength={60}
+                        onChange={(event) => setNombreEditado(event.target.value)}
+                        required
+                      />
+                      <label htmlFor={`account-type-${cuenta.id}`}>Tipo</label>
+                      {cuenta.type === 'DEBITO' ? (
+                        <small className="account-form-help">El tipo de una tarjeta de débito vinculada no se puede cambiar.</small>
+                      ) : (
+                        <select
+                          id={`account-type-${cuenta.id}`}
+                          value={tipoEditado}
+                          onChange={(event) => setTipoEditado(event.target.value)}
+                        >
+                          <option value={cuenta.type}>{etiquetasTipo[cuenta.type] || cuenta.type}</option>
+                          <option value="EFECTIVO">Efectivo</option>
+                          <option value="BANCO">Cuenta bancaria</option>
+                          <option value="DIGITAL">Billetera digital</option>
+                          <option value="CREDITO">Tarjeta de crédito</option>
+                          <option value="OTRO">Otro</option>
+                        </select>
+                      )}
+                      <button className="button-primary" type="submit" disabled={guardando}>
+                        Guardar cambios
+                      </button>
+                      <button className="text-button" type="button" onClick={() => setCuentaEditando('')}>
+                        Cancelar
+                      </button>
+                    </form>
                   )}
                   {cuentaAjustando === cuenta.id && (
                     <form className="account-adjust-form" onSubmit={(event) => handleAjustarSaldo(event, cuenta)}>
