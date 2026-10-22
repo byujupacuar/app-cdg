@@ -80,10 +80,6 @@ export default function DashboardScreen({ token, navigation, usuario }) {
           <Text style={styles.greeting}>Hola, {usuario?.name?.split(' ')[0] || nombreCuenta || 'bienvenido'} 👋</Text>
           <Text style={styles.caption}>{offline ? 'Última sincronización guardada' : 'Este es tu resumen financiero'}</Text>
         </View>
-        <View style={styles.scoreBadge}>
-          <Text style={styles.scoreNumber}>{tasaAhorro === null ? '—' : `${tasaAhorro.toFixed(0)}%`}</Text>
-          <Text style={styles.scoreCaption}>AHORRO</Text>
-        </View>
       </View>
 
       <View style={styles.balanceCard}>
@@ -170,13 +166,13 @@ export default function DashboardScreen({ token, navigation, usuario }) {
 
       <View style={styles.insightCard}>
         <Text style={styles.insightEyebrow}>TU PROGRESO</Text>
-        <Text style={styles.insightTitle}>Vas por buen camino</Text>
+        <Text style={styles.insightTitle}>Tu progreso</Text>
         <Text style={styles.insightText}>
           {ingresos > 0
             ? balance >= 0
-              ? `Tu tasa de ahorro este mes es ${tasaAhorro.toFixed(0)}%. Mantén el ritmo para alcanzar tus metas.`
-              : 'Tus gastos superan los ingresos del mes. Revisa el detalle para encontrar oportunidades de ahorro.'
-            : 'Registra tus ingresos y gastos para descubrir oportunidades de ahorro.'}
+              ? `Ahorraste ${tasaAhorro.toFixed(0)}% de tus ingresos este mes.`
+              : 'Tus gastos superaron tus ingresos este mes.'
+            : 'Registra ingresos y gastos para ver tu progreso.'}
         </Text>
       </View>
 
@@ -200,13 +196,9 @@ export default function DashboardScreen({ token, navigation, usuario }) {
           </View>
         ))}
       </View>
-      <View style={styles.accountLink}>
-        <Text style={styles.accountLinkTitle}>Patrimonio neto</Text>
-        <Text style={styles.accountLinkAmount}>{moneda(cuentas.patrimonioNeto)}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
-          <Text style={styles.seeAll}>Ver cuentas →</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.accountLink} onPress={() => navigation.navigate('Cuentas')}>
+        <Text style={styles.seeAll}>Ver cuentas →</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -220,9 +212,6 @@ const styles = StyleSheet.create({
   welcomeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   greeting: { color: colors.ink, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
   caption: { color: colors.muted, fontSize: 12, marginTop: 5 },
-  scoreBadge: { height: 54, width: 54, borderRadius: 18, backgroundColor: colors.emerald100, alignItems: 'center', justifyContent: 'center' },
-  scoreNumber: { color: colors.emerald700, fontWeight: '800', fontSize: 17 },
-  scoreCaption: { color: colors.emerald700, fontSize: 7, fontWeight: '800', letterSpacing: 0.6 },
   balanceCard: { backgroundColor: colors.blue700, borderRadius: 22, padding: 22, marginBottom: 16 },
   currentBalances: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, padding: 15 },
   currentBalanceItem: { flex: 1 },
@@ -265,7 +254,5 @@ const styles = StyleSheet.create({
   transactionTitle: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   transactionDetail: { color: colors.muted, fontSize: 10, marginTop: 4 },
   transactionAmount: { fontSize: 11, fontWeight: '800', marginLeft: 6 },
-  accountLink: { padding: 17, borderRadius: 18, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, marginBottom: 8 },
-  accountLinkTitle: { color: colors.muted, fontSize: 11 },
-  accountLinkAmount: { color: colors.ink, fontSize: 21, fontWeight: '800', marginVertical: 6 }
+  accountLink: { alignSelf: 'flex-end', paddingVertical: 8, marginBottom: 8 }
 });

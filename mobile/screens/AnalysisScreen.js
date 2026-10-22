@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { obtenerDashboardReal, obtenerMovimientosReal } from '../api';
+import { obtenerMovimientosReal } from '../api';
 import { colors } from '../theme';
 
 const rangos = [
@@ -21,18 +21,13 @@ const moneda = (valor) => `$${(Number(valor) || 0).toFixed(2)}`;
 
 export default function AnalysisScreen({ token }) {
   const [movimientos, setMovimientos] = useState([]);
-  const [resumenCuentas, setResumenCuentas] = useState(null);
   const [rango, setRango] = useState('30D');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [res, resumen] = await Promise.all([
-      obtenerMovimientosReal(token),
-      obtenerDashboardReal(token)
-    ]);
+    const res = await obtenerMovimientosReal(token);
     if (res.exito) setMovimientos(res.movimientos || []);
-    if (resumen.exito) setResumenCuentas(resumen.datos.resumenCuentas);
     setLoading(false);
     setRefreshing(false);
   }, [token]);
@@ -108,26 +103,6 @@ export default function AnalysisScreen({ token }) {
       <Text style={styles.title}>Análisis</Text>
       <Text style={styles.subtitle}>Entiende cómo se mueve tu dinero</Text>
 
-      {resumenCuentas && (
-        <View style={styles.currentBalanceCard}>
-          <Text style={styles.currentBalanceEyebrow}>SALDOS ACTUALES</Text>
-          <View style={styles.currentBalanceRow}>
-            <View style={styles.currentBalanceItem}>
-              <Text style={styles.totalLabel}>Disponible</Text>
-              <Text style={styles.currentBalanceAmount}>{moneda(resumenCuentas.totalDisponible)}</Text>
-            </View>
-            <View style={styles.currentBalanceItem}>
-              <Text style={styles.totalLabel}>Deuda de tarjetas</Text>
-              <Text style={styles.currentDebtAmount}>{moneda(resumenCuentas.deudaTarjetas)}</Text>
-            </View>
-            <View style={styles.currentBalanceItem}>
-              <Text style={styles.totalLabel}>Patrimonio neto</Text>
-              <Text style={styles.currentBalanceAmount}>{moneda(resumenCuentas.patrimonioNeto)}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
       <View style={styles.rangeRow}>
         {rangos.map((item) => (
           <TouchableOpacity key={item.key} style={[styles.rangeButton, rango === item.key && styles.rangeSelected]} onPress={() => setRango(item.key)}>
@@ -137,14 +112,11 @@ export default function AnalysisScreen({ token }) {
       </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.eyebrow}>EXCEDENTE DEL PERÍODO</Text>
+        <Text style={styles.eyebrow}>BALANCE NETO</Text>
         <Text style={[styles.surplus, excedente < 0 && styles.negative]}>{moneda(excedente)}</Text>
         <View style={styles.summaryFooter}>
-          <Text style={styles.summaryText}>Tasa de ahorro</Text>
+          <Text style={styles.summaryText}>Ahorro</Text>
           <Text style={styles.savingsRate}>{ingresos > 0 ? `${tasaAhorro.toFixed(1)}%` : '—'}</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, tasaAhorro))}%` }]} />
         </View>
       </View>
 
@@ -199,17 +171,6 @@ export default function AnalysisScreen({ token }) {
           );
         })}
       </View>
-      <View style={styles.insight}>
-        <Text style={styles.insightIcon}>✦</Text>
-        <View style={styles.insightCopy}>
-          <Text style={styles.insightTitle}>{categorias[0] ? `${categorias[0].nombre} es tu mayor gasto` : 'Tu análisis empieza aquí'}</Text>
-          <Text style={styles.insightText}>
-            {categorias[0]
-              ? `Representa ${gastos > 0 ? (categorias[0].total / gastos * 100).toFixed(0) : 0}% de tus gastos en el período.`
-              : 'Cuando registres gastos, verás aquí en qué categorías se concentra tu dinero.'}
-          </Text>
-        </View>
-      </View>
     </ScrollView>
   );
 }
@@ -227,20 +188,13 @@ const styles = StyleSheet.create({
   rangeText: { fontSize: 11, color: colors.muted, fontWeight: '600' },
   rangeTextSelected: { color: colors.blue700, fontWeight: '800' },
   summaryCard: { borderRadius: 20, backgroundColor: colors.blue700, padding: 20, marginBottom: 18 },
-  currentBalanceCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, marginBottom: 15, padding: 16 },
-  currentBalanceEyebrow: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  currentBalanceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', marginTop: 12 },
-  currentBalanceItem: { minWidth: '28%' },
-  currentBalanceAmount: { color: colors.ink, fontSize: 13, fontWeight: '800', marginTop: 4 },
-  currentDebtAmount: { color: colors.red, fontSize: 13, fontWeight: '800', marginTop: 4 },
   eyebrow: { color: '#dbeafe', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   surplus: { color: colors.white, fontSize: 31, fontWeight: '800', marginTop: 9 },
   negative: { color: '#ffe3df' },
-  summaryFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 19, marginBottom: 8 },
+  summaryFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   summaryText: { color: '#dbeafe', fontSize: 11 },
   savingsRate: { color: colors.white, fontSize: 11, fontWeight: '800' },
   progressTrack: { height: 7, backgroundColor: '#eaf0f7', borderRadius: 5, overflow: 'hidden', marginTop: 8 },
-  progressFill: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 5 },
   legendRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 9 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: 4 },
@@ -270,9 +224,4 @@ const styles = StyleSheet.create({
   categoryAmount: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   categoryProgress: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 5 },
   categoryPercent: { color: colors.muted, fontSize: 9, textAlign: 'right', marginTop: 5 },
-  insight: { flexDirection: 'row', backgroundColor: colors.emerald100, borderRadius: 16, padding: 15, marginBottom: 8 },
-  insightIcon: { color: colors.emerald700, fontSize: 19, marginRight: 10 },
-  insightCopy: { flex: 1 },
-  insightTitle: { color: colors.ink, fontSize: 12, fontWeight: '800' },
-  insightText: { color: colors.ink, fontSize: 11, lineHeight: 16, marginTop: 4 }
 });

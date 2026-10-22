@@ -147,22 +147,6 @@ export default function Dashboard({ refreshKey, onNavigate, userName }) {
           <strong className="amount-negative">{currency(gastos)}</strong>
           <span className="summary-footnote">Salidas registradas este mes</span>
         </article>
-        <article className="summary-card summary-current-balance">
-          <div className="summary-card-top">
-            <span className="summary-label">Disponible actual</span>
-            <span className="summary-icon income-icon" aria-hidden="true">◉</span>
-          </div>
-          <strong>{currency(resumenCuentas.totalDisponible)}</strong>
-          <span className="summary-footnote">Saldo disponible en tus cuentas</span>
-        </article>
-        <article className="summary-card summary-current-balance">
-          <div className="summary-card-top">
-            <span className="summary-label">Patrimonio neto actual</span>
-            <span className="summary-icon balance-icon" aria-hidden="true">▣</span>
-          </div>
-          <strong>{currency(resumenCuentas.patrimonioNeto)}</strong>
-          <span className="summary-footnote">Saldos de cuentas menos deudas de tarjetas</span>
-        </article>
       </section>
 
       <section className="panel-card weekly-cashflow-panel" aria-label="Flujo de efectivo de los últimos 7 días">

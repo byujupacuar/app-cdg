@@ -73,8 +73,8 @@ describe('Analisis', () => {
 
     expect(await screen.findByRole('heading', { name: 'Ingresos y gastos' })).toBeInTheDocument();
     expect(screen.getByText('Tasa de ahorro: 25.0%')).toBeInTheDocument();
-    expect(screen.getByText('Balance neto').closest('article')).toHaveTextContent('30');
-    expect(screen.getByText('Patrimonio neto actual').closest('article')).toHaveTextContent('550');
+    expect(screen.getByText('Superávit').closest('.analysis-savings-rate')).toHaveTextContent('30');
+    expect(screen.queryByText('Patrimonio neto actual')).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: /Ingresos.*gastos/ })).toBeInTheDocument();
   });
 });

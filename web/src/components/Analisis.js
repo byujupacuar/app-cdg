@@ -271,70 +271,11 @@ export default function Analisis({ refreshKey, onNavigate }) {
         <div className="page-loading"><span className="loader" />Consultando movimientos del período...</div>
       ) : datos && (
         <>
-          <section className="analysis-account-summary" aria-label="Saldos por cuenta">
-            {cuentas.map((cuenta) => (
-              <button
-                className={`analysis-account-card ${cuentaId === cuenta.id ? 'is-selected' : ''}`}
-                key={cuenta.id}
-                type="button"
-                onClick={() => setCuentaId(cuentaId === cuenta.id ? '' : cuenta.id)}
-                aria-pressed={cuentaId === cuenta.id}
-              >
-                <span>{cuenta.name}</span>
-                <strong className={cuenta.esCredito ? 'amount-negative' : ''}>
-                  {currency(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
-                </strong>
-                <small>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'} · ver actividad</small>
-              </button>
-            ))}
-          </section>
-
-          <section className="analysis-current-balances" aria-label="Saldos actuales">
-            <article>
-              <span>Disponible actual</span>
-              <strong>{currency(datos.resumenCuentas?.totalDisponible)}</strong>
-            </article>
-            <article>
-              <span>Deuda de tarjetas</span>
-              <strong className="amount-negative">{currency(datos.resumenCuentas?.deudaTarjetas)}</strong>
-            </article>
-            <article>
-              <span>Patrimonio neto actual</span>
-              <strong>{currency(datos.resumenCuentas?.patrimonioNeto)}</strong>
-            </article>
-          </section>
-
           {cuentaSeleccionada && (
             <p className="analysis-account-context">
               Mostrando movimientos de <strong>{cuentaSeleccionada.name}</strong> en el período seleccionado.
             </p>
           )}
-
-          <section className="analysis-metrics" aria-label="Resumen del período">
-            <article className="analysis-balance-card">
-              <span className="analysis-metric-label">Balance neto</span>
-              <strong className={balance >= 0 ? 'analysis-balance-positive' : 'analysis-balance-negative'}>{currency(balance)}</strong>
-              <small>Ingresos menos gastos</small>
-            </article>
-            <article className="analysis-metric-card">
-              <span className="analysis-metric-icon income-icon">↗</span>
-              <span className="analysis-metric-label">Ingresos</span>
-              <strong className="amount-positive">{currency(ingresos)}</strong>
-              <small>Entradas en el período</small>
-            </article>
-            <article className="analysis-metric-card">
-              <span className="analysis-metric-icon expense-icon">↘</span>
-              <span className="analysis-metric-label">Gastos</span>
-              <strong className="amount-negative">{currency(gastos)}</strong>
-              <small>Salidas en el período</small>
-            </article>
-            <article className="analysis-metric-card">
-              <span className="analysis-metric-icon count-icon">↕</span>
-              <span className="analysis-metric-label">Movimientos</span>
-              <strong>{totalMovimientos}</strong>
-              <small>Registros en total</small>
-            </article>
-          </section>
 
           <section className="analysis-content-grid">
             <article className="panel-card analysis-comparison-panel">

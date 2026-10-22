@@ -15,7 +15,11 @@ describe('Dashboard', () => {
       resumen: periodo?.fechaInicio
         ? { balanceTotal: 200, totalIngresos: 300, totalGastos: 100 }
         : { balanceTotal: 200, totalIngresos: 500, totalGastos: 300 },
-      resumenCuentas: { cuentas: [], totalDisponible: 600, patrimonioNeto: 600 },
+      resumenCuentas: {
+        cuentas: [{ id: 'account-1', name: 'Principal', type: 'BANCO', saldo: 600, deuda: 0, esCredito: false }],
+        totalDisponible: 600,
+        patrimonioNeto: 600
+      },
       gastosPorCategoria: [],
       ultimosMovimientos: []
     }));
@@ -26,7 +30,7 @@ describe('Dashboard', () => {
 
     expect(await screen.findByRole('heading', { name: 'Hola, Ana' })).toBeInTheDocument();
     expect(screen.getByText('Balance del mes').closest('article')).toHaveTextContent('200');
-    expect(screen.getByText('Patrimonio neto actual').closest('article')).toHaveTextContent('600');
+    expect(screen.getByText(/Patrimonio neto:/).closest('.account-overview-totals')).toHaveTextContent('600');
     const flujoSemanal = await screen.findByRole('region', { name: 'Flujo de efectivo de los últimos 7 días' });
     await within(flujoSemanal).findByText('Ingresos');
 

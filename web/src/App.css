@@ -187,7 +187,7 @@ button { color: inherit; }
 .button-quiet:hover { background: #f6f8f6; color: var(--ink); }
 .button-spinner { animation: spin .8s linear infinite; border: 2px solid rgba(255,255,255,.35); border-radius: 50%; border-top-color: #fff; height: 14px; width: 14px; }
 
-.summary-grid { display: grid; gap: 15px; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr; margin-bottom: 18px; }
+.summary-grid { display: grid; gap: 15px; grid-template-columns: 1.2fr 1fr 1fr; margin-bottom: 18px; }
 .summary-card {
   background: #fff;
   border: 1px solid #edf0ed;
@@ -209,9 +209,6 @@ button { color: inherit; }
 .summary-footnote { color: #a1aaa4; display: block; font-size: 10px; }
 .amount-positive { color: #39865c; }
 .amount-negative { color: var(--red); }
-.summary-current-balance { background: #eff6ff; border-color: #dbeafe; }
-.summary-current-balance > strong { color: var(--green-950); }
-
 .dashboard-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
 .panel-card { background: #fff; border: 1px solid #edf0ed; border-radius: 15px; box-shadow: var(--shadow); padding: 22px; }
 .panel-heading { align-items: center; display: flex; justify-content: space-between; margin-bottom: 22px; }
@@ -276,29 +273,7 @@ button { color: inherit; }
 .analysis-account-filter label { color: #5f6d64; font-size: 11px; font-weight: 700; }
 .analysis-account-filter select { background: #fbfcfb; border: 1px solid #e6ebe7; border-radius: 9px; color: var(--ink); font-size: 12px; min-height: 39px; min-width: 210px; padding: 8px 11px; }
 .analysis-export-button { margin-left: auto; min-height: 39px; }
-.analysis-account-summary { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); margin-bottom: 12px; }
-.analysis-account-card { background: #fff; border: 1px solid #edf0ed; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 14px; text-align: left; transition: border-color .15s, background .15s; }
-.analysis-account-card:hover, .analysis-account-card.is-selected { background: #f2f7f3; border-color: #8ab59a; }
-.analysis-account-card > span { color: #68766d; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.analysis-account-card > strong { color: var(--green-950); font-size: 17px; }
-.analysis-account-card > small, .analysis-account-context { color: #89968e; font-size: 10px; }
-.analysis-account-context { margin: 0 0 12px; }
-.analysis-current-balances { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; }
-.analysis-current-balances article { background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; display: flex; flex-direction: column; gap: 7px; padding: 14px; }
-.analysis-current-balances span { color: #68766d; font-size: 10px; }
-.analysis-current-balances strong { color: var(--green-950); font-size: 16px; }
-.analysis-metrics { display: grid; gap: 13px; grid-template-columns: 1.2fr 1fr 1fr 1fr; margin-bottom: 16px; }
-.analysis-balance-card, .analysis-metric-card { background: #fff; border: 1px solid #edf0ed; border-radius: 14px; box-shadow: var(--shadow); min-height: 135px; padding: 17px; }
-.analysis-balance-card { background: linear-gradient(135deg, #1c5a42, #2c7757); border: 0; display: flex; flex-direction: column; justify-content: center; }
-.analysis-metric-label { color: #89968e; display: block; font-size: 10px; font-weight: 650; }
-.analysis-balance-card .analysis-metric-label, .analysis-balance-card small { color: rgba(255,255,255,.68); }
-.analysis-balance-card strong, .analysis-metric-card > strong { display: block; font-size: clamp(19px, 2vw, 25px); letter-spacing: -.7px; margin: 12px 0 5px; }
-.analysis-balance-positive { color: #fff; }
-.analysis-balance-negative { color: #ffd4ca; }
-.analysis-balance-card small, .analysis-metric-card small { color: #a1aaa4; display: block; font-size: 9px; }
-.analysis-metric-icon { align-items: center; border-radius: 9px; display: flex; float: right; font-size: 15px; height: 30px; justify-content: center; width: 30px; }
-.count-icon { background: var(--green-50); color: var(--green-800); }
-.analysis-metric-card > strong { clear: both; color: var(--ink); }
+.analysis-account-context { color: #89968e; font-size: 10px; margin: 0 0 12px; }
 .analysis-content-grid { display: grid; gap: 15px; grid-template-columns: .85fr 1.15fr; }
 .analysis-category-list { display: grid; gap: 17px; }
 .analysis-category-heading { align-items: center; display: flex; font-size: 11px; justify-content: space-between; margin-bottom: 7px; }
@@ -596,7 +571,6 @@ button { color: inherit; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
   .summary-balance { grid-column: 1 / -1; }
   .dashboard-grid { grid-template-columns: 1fr; }
-  .analysis-metrics { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -624,7 +598,6 @@ button { color: inherit; }
   .summary-grid { gap: 9px; grid-template-columns: 1fr 1fr; }
   .summary-card { min-height: 126px; padding: 15px; }
   .summary-balance { grid-column: 1 / -1; }
-  .summary-current-balance { grid-column: 1 / -1; }
   .summary-card > strong { font-size: 22px; }
   .summary-label { font-size: 10px; }
   .summary-footnote { font-size: 9px; }
@@ -644,8 +617,6 @@ button { color: inherit; }
   .analysis-account-filter { align-items: stretch; flex-direction: column; }
   .analysis-account-filter select { min-width: 0; width: 100%; }
   .analysis-export-button { margin-left: 0; width: 100%; }
-  .analysis-metrics { gap: 9px; }
-  .analysis-current-balances { grid-template-columns: 1fr; }
   .analysis-balance-card, .analysis-metric-card { min-height: 120px; padding: 14px; }
   .analysis-balance-card strong, .analysis-metric-card > strong { font-size: 19px; }
   .analysis-content-grid { grid-template-columns: 1fr; }
@@ -855,7 +826,6 @@ button { color: inherit; }
   .user-menu-identity small { display: none; }
   .summary-grid { grid-template-columns: 1fr; }
   .summary-balance { grid-column: auto; }
-  .summary-current-balance { grid-column: auto; }
   .summary-card { min-height: 112px; }
   .account-totals { grid-template-columns: 1fr; }
   .loan-totals-grid { grid-template-columns: 1fr; }
