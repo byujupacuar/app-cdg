@@ -289,6 +289,21 @@ export default function Analisis({ refreshKey, onNavigate }) {
             ))}
           </section>
 
+          <section className="analysis-current-balances" aria-label="Saldos actuales">
+            <article>
+              <span>Disponible actual</span>
+              <strong>{currency(datos.resumenCuentas?.totalDisponible)}</strong>
+            </article>
+            <article>
+              <span>Deuda de tarjetas</span>
+              <strong className="amount-negative">{currency(datos.resumenCuentas?.deudaTarjetas)}</strong>
+            </article>
+            <article>
+              <span>Patrimonio neto actual</span>
+              <strong>{currency(datos.resumenCuentas?.patrimonioNeto)}</strong>
+            </article>
+          </section>
+
           {cuentaSeleccionada && (
             <p className="analysis-account-context">
               Mostrando movimientos de <strong>{cuentaSeleccionada.name}</strong> en el período seleccionado.

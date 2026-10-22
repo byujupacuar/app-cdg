@@ -15,7 +15,7 @@ describe('Analisis', () => {
     obtenerDashboard.mockResolvedValue({
       exito: true,
       resumen: {},
-      resumenCuentas: { cuentas: [] },
+      resumenCuentas: { cuentas: [], totalDisponible: 600, deudaTarjetas: 50, patrimonioNeto: 550 },
       ultimosMovimientos: []
     });
     exportarMovimientosCSV.mockResolvedValue(new Blob(['Fecha,Monto']));
@@ -64,7 +64,7 @@ describe('Analisis', () => {
     obtenerDashboard.mockResolvedValue({
       exito: true,
       resumen: { balanceTotal: 30, totalIngresos: 120, totalGastos: 90 },
-      resumenCuentas: { cuentas: [] },
+      resumenCuentas: { cuentas: [], totalDisponible: 600, deudaTarjetas: 50, patrimonioNeto: 550 },
       ultimosMovimientos: [],
       gastosPorCategoria: []
     });
@@ -73,6 +73,8 @@ describe('Analisis', () => {
 
     expect(await screen.findByRole('heading', { name: 'Ingresos y gastos' })).toBeInTheDocument();
     expect(screen.getByText('Tasa de ahorro: 25.0%')).toBeInTheDocument();
+    expect(screen.getByText('Balance neto').closest('article')).toHaveTextContent('30');
+    expect(screen.getByText('Patrimonio neto actual').closest('article')).toHaveTextContent('550');
     expect(screen.getByRole('img', { name: /Ingresos.*gastos/ })).toBeInTheDocument();
   });
 });

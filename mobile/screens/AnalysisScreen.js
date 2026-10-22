@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { obtenerMovimientosReal } from '../api';
+import { obtenerDashboardReal, obtenerMovimientosReal } from '../api';
 import { colors } from '../theme';
 
 const rangos = [
@@ -21,13 +21,18 @@ const moneda = (valor) => `$${(Number(valor) || 0).toFixed(2)}`;
 
 export default function AnalysisScreen({ token }) {
   const [movimientos, setMovimientos] = useState([]);
+  const [resumenCuentas, setResumenCuentas] = useState(null);
   const [rango, setRango] = useState('30D');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const cargar = useCallback(async () => {
-    const res = await obtenerMovimientosReal(token);
+    const [res, resumen] = await Promise.all([
+      obtenerMovimientosReal(token),
+      obtenerDashboardReal(token)
+    ]);
     if (res.exito) setMovimientos(res.movimientos || []);
+    if (resumen.exito) setResumenCuentas(resumen.datos.resumenCuentas);
     setLoading(false);
     setRefreshing(false);
   }, [token]);
@@ -102,6 +107,26 @@ export default function AnalysisScreen({ token }) {
     >
       <Text style={styles.title}>Análisis</Text>
       <Text style={styles.subtitle}>Entiende cómo se mueve tu dinero</Text>
+
+      {resumenCuentas && (
+        <View style={styles.currentBalanceCard}>
+          <Text style={styles.currentBalanceEyebrow}>SALDOS ACTUALES</Text>
+          <View style={styles.currentBalanceRow}>
+            <View style={styles.currentBalanceItem}>
+              <Text style={styles.totalLabel}>Disponible</Text>
+              <Text style={styles.currentBalanceAmount}>{moneda(resumenCuentas.totalDisponible)}</Text>
+            </View>
+            <View style={styles.currentBalanceItem}>
+              <Text style={styles.totalLabel}>Deuda de tarjetas</Text>
+              <Text style={styles.currentDebtAmount}>{moneda(resumenCuentas.deudaTarjetas)}</Text>
+            </View>
+            <View style={styles.currentBalanceItem}>
+              <Text style={styles.totalLabel}>Patrimonio neto</Text>
+              <Text style={styles.currentBalanceAmount}>{moneda(resumenCuentas.patrimonioNeto)}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.rangeRow}>
         {rangos.map((item) => (
@@ -202,6 +227,12 @@ const styles = StyleSheet.create({
   rangeText: { fontSize: 11, color: colors.muted, fontWeight: '600' },
   rangeTextSelected: { color: colors.blue700, fontWeight: '800' },
   summaryCard: { borderRadius: 20, backgroundColor: colors.blue700, padding: 20, marginBottom: 18 },
+  currentBalanceCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, marginBottom: 15, padding: 16 },
+  currentBalanceEyebrow: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  currentBalanceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', marginTop: 12 },
+  currentBalanceItem: { minWidth: '28%' },
+  currentBalanceAmount: { color: colors.ink, fontSize: 13, fontWeight: '800', marginTop: 4 },
+  currentDebtAmount: { color: colors.red, fontSize: 13, fontWeight: '800', marginTop: 4 },
   eyebrow: { color: '#dbeafe', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   surplus: { color: colors.white, fontSize: 31, fontWeight: '800', marginTop: 9 },
   negative: { color: '#ffe3df' },

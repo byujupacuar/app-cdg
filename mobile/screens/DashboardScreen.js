@@ -105,6 +105,17 @@ export default function DashboardScreen({ token, navigation, usuario }) {
         </View>
       </View>
 
+      <View style={styles.currentBalances}>
+        <View style={styles.currentBalanceItem}>
+          <Text style={styles.currentBalanceLabel}>Disponible actual</Text>
+          <Text style={styles.currentBalanceAmount}>{moneda(cuentas.totalDisponible)}</Text>
+        </View>
+        <View style={styles.currentBalanceItem}>
+          <Text style={styles.currentBalanceLabel}>Patrimonio neto</Text>
+          <Text style={styles.currentBalanceAmount}>{moneda(cuentas.patrimonioNeto)}</Text>
+        </View>
+      </View>
+
       <View style={styles.actions}>
         {[
           ['＋', 'Ingreso', 'INGRESO'],
@@ -213,6 +224,10 @@ const styles = StyleSheet.create({
   scoreNumber: { color: colors.emerald700, fontWeight: '800', fontSize: 17 },
   scoreCaption: { color: colors.emerald700, fontSize: 7, fontWeight: '800', letterSpacing: 0.6 },
   balanceCard: { backgroundColor: colors.blue700, borderRadius: 22, padding: 22, marginBottom: 16 },
+  currentBalances: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, padding: 15 },
+  currentBalanceItem: { flex: 1 },
+  currentBalanceLabel: { color: colors.muted, fontSize: 10, fontWeight: '600' },
+  currentBalanceAmount: { color: colors.ink, fontSize: 16, fontWeight: '800', marginTop: 5 },
   cardLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: '#dbeafe', fontSize: 13, fontWeight: '600' },
   monthTag: { color: colors.white, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
