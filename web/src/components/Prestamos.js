@@ -4,6 +4,7 @@ import {
   actualizarPagoPrestamo,
   actualizarPlanPrestamo,
   crearPrestamo,
+  eliminarPrestamo,
   eliminarPagoPrestamo,
   obtenerPrestamos
 } from '../services/api';
@@ -215,6 +216,22 @@ export default function Prestamos() {
     }
   };
 
+  const deleteLoan = async (loan) => {
+    if (!window.confirm(`¿Eliminar el préstamo de ${loan.contactName}? Se eliminarán también sus pagos y movimientos asociados.`)) return;
+    setError('');
+    setMessage('');
+    setSaving(true);
+    try {
+      await eliminarPrestamo(loan.id);
+      setMessage('Préstamo eliminado junto con sus pagos y movimientos asociados.');
+      await loadLoans();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo eliminar el préstamo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const loanList = prestamos.filter((loan) => loan.type === tipoLista);
   const pendientes = loanList.filter((loan) => Number(loan.dueAmount) > 0).length;
 
@@ -331,6 +348,9 @@ export default function Prestamos() {
                           Registrar abono <span aria-hidden="true">→</span>
                         </button>
                       )}
+                      <button type="button" className="text-button" onClick={() => deleteLoan(loan)} disabled={saving}>
+                        Eliminar préstamo
+                      </button>
                     </div>
                     <div className="loan-payment-history">
                       <strong>Historial de pagos</strong>

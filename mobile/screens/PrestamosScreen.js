@@ -9,6 +9,7 @@ import {
   obtenerPrestamos,
   crearPrestamo,
   actualizarPlanPrestamo,
+  eliminarPrestamo,
   abonarPrestamo,
   actualizarPagoPrestamo,
   eliminarPagoPrestamo
@@ -300,6 +301,25 @@ export default function PrestamosScreen({ token }) {
     ]);
   };
 
+  const confirmarEliminarPrestamo = (prestamo) => {
+    Alert.alert(
+      'Eliminar préstamo',
+      `¿Eliminar el préstamo de ${prestamo.contactName}? También se eliminarán sus pagos y movimientos asociados.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await eliminarPrestamo(prestamo.id, token);
+            if (res.exito) cargarDatos();
+            else Alert.alert('Error', res.mensaje);
+          }
+        }
+      ]
+    );
+  };
+
   const prestamosFiltrados = prestamos.filter(p => p.type === tabTipo);
 
   if (loading && !refreshing) {
@@ -443,6 +463,9 @@ export default function PrestamosScreen({ token }) {
                     </TouchableOpacity>
                   )}
                 </View>
+                <TouchableOpacity style={styles.eliminarPrestamo} onPress={() => confirmarEliminarPrestamo(item)}>
+                  <Text style={[styles.pagoAccion, styles.pagoEliminar]}>Eliminar préstamo</Text>
+                </TouchableOpacity>
                 <View style={styles.historialPagos}>
                   <Text style={styles.historialTitulo}>Historial de pagos</Text>
                   {pagosHistoricos > 0.005 && (
@@ -748,6 +771,7 @@ const styles = StyleSheet.create({
   trackBar: { height: 7, backgroundColor: '#edf1ed', borderRadius: 4, overflow: 'hidden', marginVertical: 10 },
   fillBar: { height: '100%' },
   loanFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
+  eliminarPrestamo: { alignSelf: 'flex-end', paddingVertical: 7 },
   dueText: { fontSize: 12, color: colors.muted },
   dueHighlight: { fontWeight: '700', color: colors.ink },
   btnAbonar: { backgroundColor: colors.green800, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 8 },

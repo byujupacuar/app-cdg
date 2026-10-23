@@ -1,0 +1,7 @@
+ALTER TABLE "Transaction"
+ADD COLUMN "loanId" TEXT;
+
+ALTER TABLE "Transaction"
+ADD CONSTRAINT "Transaction_loanId_fkey"
+FOREIGN KEY ("loanId") REFERENCES "Loan"("id")
+ON DELETE CASCADE ON UPDATE CASCADE;

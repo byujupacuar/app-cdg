@@ -573,6 +573,18 @@ export const actualizarPlanPrestamo = async (id, plan, token) => {
   }
 };
 
+export const eliminarPrestamo = async (id, token) => {
+  try {
+    const respuesta = await axios.delete(`${API_URL}/api/prestamos/${id}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    return { exito: true, mensaje: respuesta.data.mensaje };
+  } catch (error) {
+    console.error('Error al eliminar préstamo:', error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || 'No se pudo eliminar el préstamo.' };
+  }
+};
+
 export const abonarPrestamo = async (id, abonoAmount, token, paymentDate) => {
   try {
     const respuesta = await axios.patch(`${API_URL}/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate }, {

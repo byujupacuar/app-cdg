@@ -62,6 +62,7 @@ const registrarMovimientoPrestamo = async (tx, {
   loanType,
   contactName,
   date,
+  loanId,
   loanPaymentId
 }) => {
   const categoryName = {
@@ -86,6 +87,7 @@ const registrarMovimientoPrestamo = async (tx, {
       financialAccountId,
       userId,
       categoryId: category.id,
+      ...(loanId ? { loanId } : {}),
       ...(loanPaymentId ? { loanPaymentId } : {})
     }
   });
@@ -205,7 +207,8 @@ router.post('/', autenticarToken, async (req, res) => {
         type: movimientoTipo,
         loanType: tipoEnum,
         contactName: contactName.trim(),
-        date: fechaPrestamo
+        date: fechaPrestamo,
+        loanId: prestamo.id
       });
       return prestamo;
     });
@@ -214,6 +217,25 @@ router.post('/', autenticarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al crear préstamo:', error);
     res.status(500).json({ error: 'Error al registrar el préstamo.' });
+  }
+});
+
+router.delete('/:id', autenticarToken, async (req, res) => {
+  try {
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+    if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+
+    const resultado = await prisma.loan.deleteMany({
+      where: { id: req.params.id, accountId: relacionCuenta.accountId }
+    });
+    if (!resultado.count) return res.status(404).json({ error: 'Préstamo no encontrado.' });
+
+    res.json({ exito: true, mensaje: 'Préstamo eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar el préstamo:', error);
+    res.status(500).json({ error: 'Error al eliminar el préstamo.' });
   }
 });
 

@@ -146,6 +146,11 @@ export const crearPrestamo = async (datos) => {
   return res.data;
 };
 
+export const eliminarPrestamo = async (id) => {
+  const res = await api.delete(`/api/prestamos/${id}`);
+  return res.data;
+};
+
 export const actualizarPlanPrestamo = async (id, plan) => {
   const res = await api.put(`/api/prestamos/${id}/plan`, plan);
   return res.data;
