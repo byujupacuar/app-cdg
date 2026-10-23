@@ -119,7 +119,13 @@ export default function CuentasScreen({ token }) {
   };
 
   const handleTransferencia = async () => {
-    if (!origen || !destino || origen === destino || Number(montoTransferencia) <= 0) {
+    if (
+      !origen
+      || !destino
+      || origen === destino
+      || !Number.isFinite(Number(montoTransferencia))
+      || Number(montoTransferencia) <= 0
+    ) {
       Alert.alert('Datos inválidos', 'Elige dos cuentas distintas e ingresa un monto mayor a cero.');
       return;
     }
@@ -137,7 +143,12 @@ export default function CuentasScreen({ token }) {
     }
     setMontoTransferencia('');
     setDetalleTransferencia('');
-    Alert.alert('Transferencia registrada', 'Se actualizaron los saldos sin cambiar los ingresos o gastos.');
+    Alert.alert(
+      res.pendiente ? 'Transferencia guardada offline' : 'Transferencia registrada',
+      res.pendiente
+        ? 'Los saldos se actualizaron en este dispositivo. Se sincronizará al recuperar la conexión.'
+        : 'Se actualizaron los saldos sin cambiar los ingresos o gastos.'
+    );
     await cargarDatos();
   };
 
@@ -415,7 +426,11 @@ export default function CuentasScreen({ token }) {
           <View key={transferencia.id} style={styles.filaCuenta}>
             <View style={styles.infoCuenta}>
               <Text style={styles.nombreCuenta}>{transferencia.fromFinancialAccount.name} → {transferencia.toFinancialAccount.name}</Text>
-              <Text style={styles.tipoCuenta}>{transferencia.description || new Date(transferencia.date).toLocaleDateString()}</Text>
+              <Text style={styles.tipoCuenta}>
+                {transferencia.pending
+                  ? `Pendiente de sincronización · ${transferencia.description || new Date(transferencia.date).toLocaleDateString()}`
+                  : transferencia.description || new Date(transferencia.date).toLocaleDateString()}
+              </Text>
             </View>
             <Text style={styles.saldoCuenta}>{moneda(transferencia.amount)}</Text>
           </View>

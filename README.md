@@ -79,18 +79,19 @@ Después de iniciar sesión con conexión, la app guarda la sesión de forma
 segura y conserva una copia local de los movimientos, cuentas, categorías,
 presupuestos, préstamos y transferencias. Así se pueden consultar los últimos
 datos descargados al volver a abrirla sin internet. Los movimientos nuevos,
-editados o eliminados se guardan primero en SQLite y se envían automáticamente
-cuando vuelve la conexión. La app muestra un aviso mientras haya cambios por
-sincronizar.
+editados o eliminados y las transferencias se guardan primero en SQLite y se
+envían automáticamente cuando vuelve la conexión. Las transferencias offline
+actualizan ambos saldos localmente y aparecen marcadas como pendientes. La app
+muestra un aviso mientras haya cambios por sincronizar.
 
 El primer inicio de sesión y la descarga inicial requieren internet. Después de
 iniciar sesión, la app descarga los datos para consultar las secciones sin red.
-En esta versión, las operaciones offline que se sincronizan son las de
-movimientos; crear cuentas, categorías, presupuestos o préstamos y registrar
-transferencias requiere conexión. Para probarlo, inicia sesión conectado,
-espera a que termine la descarga, activa el modo avión y registra, edita o
-elimina un movimiento. Al volver a conectarte, la app reintentará la
-sincronización automáticamente hasta que el servidor confirme los cambios.
+En esta versión, crear cuentas, categorías, presupuestos o préstamos requiere
+conexión. Para probar las operaciones offline, inicia sesión conectado, espera
+a que termine la descarga, activa el modo avión y registra, edita o elimina un
+movimiento, o registra una transferencia entre dos cuentas. Al volver a
+conectarte, la app reintentará la sincronización automáticamente hasta que el
+servidor confirme los cambios.
 
 ## Configuración local
 

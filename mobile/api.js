@@ -20,6 +20,96 @@ const createId = () => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
 
+const combinarTransferenciasPendientes = async (transferenciasRemotas) => {
+  const pendientes = await getPendingMutations();
+  const cuentas = (await cacheGet('accounts'))?.cuentas || [];
+  const transferencias = new Map(
+    (transferenciasRemotas || []).map((item) => [item.id, { ...item, pending: false }])
+  );
+
+  pendientes
+    .filter((mutacion) => mutacion.entity === 'FINANCIAL_ACCOUNT_TRANSFER')
+    .forEach((mutacion) => {
+      if (mutacion.action !== 'CREATE') return;
+      const { data, tempId } = mutacion;
+      transferencias.set(tempId, {
+        ...data,
+        id: tempId,
+        date: data.date || mutacion.clientTimestamp,
+        fromFinancialAccount: cuentas.find((cuenta) => cuenta.id === data.fromFinancialAccountId),
+        toFinancialAccount: cuentas.find((cuenta) => cuenta.id === data.toFinancialAccountId),
+        pending: true
+      });
+    });
+
+  return Array.from(transferencias.values())
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+const guardarTransferenciaLocal = async (id, datos) => {
+  const resumenCuentas = await cacheGet('accounts');
+  if (!resumenCuentas?.cuentas) {
+    throw new Error('No hay cuentas guardadas en el dispositivo para registrar la transferencia offline.');
+  }
+  const cuentas = resumenCuentas.cuentas;
+  const origen = cuentas.find((cuenta) => cuenta.id === datos.fromFinancialAccountId);
+  const destino = cuentas.find((cuenta) => cuenta.id === datos.toFinancialAccountId);
+  if (!origen || !destino || origen.type === 'DEBITO' || destino.type === 'DEBITO') {
+    throw new Error('No se encontraron cuentas válidas guardadas para la transferencia.');
+  }
+
+  const monto = Number(datos.amount);
+  const saldos = new Map(cuentas.map((cuenta) => [cuenta.id, Number(cuenta.saldo || 0)]));
+  const origenCredito = origen.type === 'CREDITO' || origen.type === 'TARJETA_CREDITO';
+  const destinoCredito = destino.type === 'CREDITO' || destino.type === 'TARJETA_CREDITO';
+  saldos.set(origen.id, (saldos.get(origen.id) || 0) + monto * (origenCredito ? 1 : -1));
+  saldos.set(destino.id, (saldos.get(destino.id) || 0) + monto * (destinoCredito ? -1 : 1));
+
+  const cuentasActualizadas = cuentas.map((cuenta) => {
+    const saldo = cuenta.type === 'DEBITO' && cuenta.linkedFinancialAccountId
+      ? saldos.get(cuenta.linkedFinancialAccountId) || 0
+      : saldos.get(cuenta.id) || 0;
+    const esCredito = cuenta.type === 'CREDITO' || cuenta.type === 'TARJETA_CREDITO';
+    return { ...cuenta, saldo, deuda: esCredito ? Math.max(saldo, 0) : 0 };
+  });
+  const totalDisponible = cuentasActualizadas
+    .filter((cuenta) => !cuenta.esCredito && !cuenta.esDebitoVinculado)
+    .reduce((total, cuenta) => total + Number(cuenta.saldo || 0), 0);
+  const deudaTarjetas = cuentasActualizadas
+    .reduce((total, cuenta) => total + Number(cuenta.deuda || 0), 0);
+  const resumenActualizado = {
+    ...resumenCuentas,
+    cuentas: cuentasActualizadas,
+    totalDisponible,
+    deudaTarjetas,
+    patrimonioNeto: totalDisponible - deudaTarjetas
+  };
+  await cacheSet('accounts', resumenActualizado);
+
+  const fecha = datos.date || new Date().toISOString();
+  const transferencia = {
+    ...datos,
+    id,
+    date: fecha,
+    fromFinancialAccount: origen,
+    toFinancialAccount: destino,
+    pending: true
+  };
+  const historial = (await cacheGet('transfers')) || [];
+  await cacheSet('transfers', [
+    transferencia,
+    ...historial.filter((item) => item.id !== id)
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+  const dashboard = await cacheGet('dashboard');
+  if (dashboard) {
+    await cacheSet('dashboard', {
+      ...dashboard,
+      resumenCuentas: resumenActualizado
+    });
+  }
+};
+
 const combinarMovimientosPendientes = async (movimientosRemotos, mutaciones) => {
   const movimientosLocales = (await cacheGet('transactions')) || [];
   const categorias = (await cacheGet('categories')) || [];
@@ -604,15 +694,54 @@ const obtenerTransferenciasRemotoLegacy = async (token) => {
 
 export const crearTransferencia = async (datos, token) => {
   try {
-    const respuesta = await axios.post(`${API_URL}/api/cuentas/financieras/transferencias`, datos, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      }
+    if (
+      !Number.isFinite(Number(datos.amount))
+      || Number(datos.amount) <= 0
+      || !datos.fromFinancialAccountId
+      || !datos.toFinancialAccountId
+      || datos.fromFinancialAccountId === datos.toFinancialAccountId
+    ) {
+      throw new Error('Elige dos cuentas distintas e ingresa un monto válido mayor a cero.');
+    }
+    if (typeof datos.description !== 'undefined' && (
+      typeof datos.description !== 'string' || datos.description.length > 120
+    )) {
+      throw new Error('El detalle de la transferencia no puede exceder 120 caracteres.');
+    }
+    const cuentas = (await cacheGet('accounts'))?.cuentas || [];
+    const origen = cuentas.find((cuenta) => cuenta.id === datos.fromFinancialAccountId);
+    const destino = cuentas.find((cuenta) => cuenta.id === datos.toFinancialAccountId);
+    if (!origen || !destino || origen.type === 'DEBITO' || destino.type === 'DEBITO') {
+      throw new Error('No se encontraron cuentas válidas guardadas para la transferencia.');
+    }
+    const id = datos.id || createId();
+    const transferencia = {
+      ...datos,
+      id,
+      date: datos.date || new Date().toISOString()
+    };
+    await enqueueMutation({
+      id,
+      entity: 'FINANCIAL_ACCOUNT_TRANSFER',
+      action: 'CREATE',
+      data: transferencia,
+      clientTimestamp: transferencia.date
     });
-    return { exito: true, transferencia: respuesta.data.transferencia };
+    await guardarTransferenciaLocal(id, transferencia);
+    await sincronizarPendientes(token);
+    const pendiente = (await getPendingMutations()).some((item) => item.tempId === id);
+    const transferencias = await combinarTransferenciasPendientes(
+      (await cacheGet('transfers')) || []
+    );
+    await cacheSet('transfers', transferencias);
+    return {
+      exito: true,
+      transferencia: transferencias.find((item) => item.id === id),
+      pendiente
+    };
   } catch (error) {
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudo registrar la transferencia." };
+    console.error('No se pudo guardar la transferencia en el dispositivo:', error.message);
+    return { exito: false, mensaje: error.message || 'No se pudo registrar la transferencia.' };
   }
 };
 
@@ -832,15 +961,19 @@ export const obtenerCuentasFinancieras = async (token) => {
 
 export const obtenerTransferencias = async (token) => {
   try {
-    const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras/transferencias`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const respuesta = await axios.get(API_URL + '/api/cuentas/financieras/transferencias', {
+      headers: { Authorization: 'Bearer ' + token }
     });
-    await cacheSet('transfers', respuesta.data.transferencias);
-    return { exito: true, transferencias: respuesta.data.transferencias };
+    const transferencias = await combinarTransferenciasPendientes(respuesta.data.transferencias);
+    await cacheSet('transfers', transferencias);
+    return { exito: true, transferencias };
   } catch (error) {
     console.error('Error al consultar transferencias:', error.response?.data || error.message);
     const transferencias = await cacheGet('transfers');
-    if (Array.isArray(transferencias)) return { exito: true, transferencias, offline: true };
+    if (Array.isArray(transferencias)) {
+      const transferenciasConPendientes = await combinarTransferenciasPendientes(transferencias);
+      return { exito: true, transferencias: transferenciasConPendientes, offline: true };
+    }
     return { exito: false, mensaje: error.response?.data?.error || 'No se pudieron cargar las transferencias.' };
   }
 };

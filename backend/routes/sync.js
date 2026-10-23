@@ -55,6 +55,9 @@ router.post('/', autenticarToken, async (req, res) => {
         if (entity === 'TRANSACTION') {
           const resultado = await procesarTransaccion(action, data, accountId, userId, clientTimestamp);
           resultados.push({ tempId, status: 'SYNCED', serverId: resultado.id });
+        } else if (entity === 'FINANCIAL_ACCOUNT_TRANSFER') {
+          const resultado = await procesarTransferencia(action, data, accountId, clientTimestamp);
+          resultados.push({ tempId, status: 'SYNCED', serverId: resultado.id });
         } else {
           resultados.push({ tempId, status: 'ERROR', error: 'Entidad no soportada' });
         }
@@ -189,6 +192,76 @@ async function procesarTransaccion(action, data, accountId, userId, clientTimest
   }
 
   throw new Error(`Acción no soportada para movimientos: ${action}`);
+}
+
+async function procesarTransferencia(action, data, accountId, clientTimestamp) {
+  if (action !== 'CREATE') {
+    throw new Error(`Acción no soportada para transferencias: ${action}`);
+  }
+
+  const {
+    id,
+    amount,
+    description,
+    date,
+    fromFinancialAccountId,
+    toFinancialAccountId
+  } = data;
+  const monto = Number(amount);
+  if (
+    typeof id !== 'string'
+    || !id
+    || !Number.isFinite(monto)
+    || monto <= 0
+    || typeof fromFinancialAccountId !== 'string'
+    || typeof toFinancialAccountId !== 'string'
+    || fromFinancialAccountId === toFinancialAccountId
+  ) {
+    throw new Error('Los datos de la transferencia no son válidos.');
+  }
+  if (typeof description !== 'undefined' && (
+    typeof description !== 'string' || description.length > 120
+  )) {
+    throw new Error('El detalle de la transferencia no es válido.');
+  }
+
+  const existente = await prisma.financialAccountTransfer.findUnique({ where: { id } });
+  if (existente) {
+    if (existente.householdAccountId !== accountId) {
+      throw new Error('El identificador de la transferencia ya pertenece a otra cuenta.');
+    }
+    return existente;
+  }
+
+  const cuentas = await prisma.financialAccount.findMany({
+    where: {
+      householdAccountId: accountId,
+      id: { in: [fromFinancialAccountId, toFinancialAccountId] }
+    }
+  });
+  if (cuentas.length !== 2) {
+    throw new Error('Selecciona cuentas válidas de tu hogar.');
+  }
+  if (cuentas.some((cuenta) => cuenta.type === 'DEBITO')) {
+    throw new Error('Usa la cuenta bancaria vinculada para hacer transferencias de una tarjeta de débito.');
+  }
+
+  const fecha = date ? new Date(date) : new Date(clientTimestamp || Date.now());
+  if (Number.isNaN(fecha.getTime())) {
+    throw new Error('La fecha de la transferencia no es válida.');
+  }
+
+  return prisma.financialAccountTransfer.create({
+    data: {
+      id,
+      amount: monto,
+      description: description || null,
+      date: fecha,
+      householdAccountId: accountId,
+      fromFinancialAccountId,
+      toFinancialAccountId
+    }
+  });
 }
 
 module.exports = router;
