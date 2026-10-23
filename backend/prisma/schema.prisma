@@ -128,10 +128,12 @@ model Transaction {
   financialAccountId String?
   userId             String
   categoryId         String
+  loanPaymentId      String?           @unique
   account            Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
   financialAccount   FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
   user               User              @relation(fields: [userId], references: [id])
   category           Category          @relation(fields: [categoryId], references: [id])
+  loanPayment        LoanPayment?      @relation(fields: [loanPaymentId], references: [id], onDelete: Cascade)
   createdAt          DateTime          @default(now())
 }
 
@@ -168,6 +170,7 @@ model LoanPayment {
   date      DateTime @default(now())
   loanId    String
   loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  transaction Transaction?
   createdAt DateTime @default(now())
 
   @@index([loanId, date])

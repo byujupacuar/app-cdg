@@ -41,6 +41,56 @@ const distributePaidAmount = (installments, paidAmount) => {
   });
 };
 
+const actualizarCuotasPrestamo = async (tx, prestamo) => {
+  const cuotas = await tx.loanInstallment.findMany({
+    where: { loanId: prestamo.id },
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }]
+  });
+  const cuotasConPagos = distributePaidAmount(cuotas, prestamo.totalAmount - prestamo.dueAmount);
+  await Promise.all(cuotasConPagos.map((cuota) => tx.loanInstallment.update({
+    where: { id: cuota.id },
+    data: { paidAmount: cuota.paidAmount }
+  })));
+};
+
+const registrarMovimientoPrestamo = async (tx, {
+  userId,
+  accountId,
+  financialAccountId,
+  amount,
+  type,
+  loanType,
+  contactName,
+  date,
+  loanPaymentId
+}) => {
+  const categoryName = {
+    'OTORGADO:GASTO': 'Préstamo otorgado',
+    'RECIBIDO:INGRESO': 'Préstamo recibido',
+    'OTORGADO:INGRESO': 'Cobro de préstamo',
+    'RECIBIDO:GASTO': 'Pago de préstamo'
+  }[`${loanType}:${type}`];
+  const category = await tx.category.findFirst({
+    where: { name: categoryName, type, userId }
+  }) || await tx.category.create({
+    data: { name: categoryName, icon: '💸', type, userId }
+  });
+
+  return tx.transaction.create({
+    data: {
+      amount,
+      type,
+      description: `${categoryName}: ${contactName}`,
+      date,
+      accountId,
+      financialAccountId,
+      userId,
+      categoryId: category.id,
+      ...(loanPaymentId ? { loanPaymentId } : {})
+    }
+  });
+};
+
 // Middleware de autenticación JWT
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -126,18 +176,38 @@ router.post('/', autenticarToken, async (req, res) => {
 
     const tipoEnum = type.toUpperCase();
 
-    const nuevoPrestamo = await prisma.loan.create({
-      data: {
-        contactName: contactName.trim(),
-        totalAmount: monto,
-        dueAmount: monto, // Inicialmente el saldo pendiente es el total
-        type: tipoEnum,
-        loanDate: fechaPrestamo,
-        dueDate: fechaVencimiento,
+    const cuentaFinanciera = await prisma.financialAccount.findFirst({
+      where: { householdAccountId: relacionCuenta.accountId },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el movimiento del préstamo.' });
+
+    const nuevoPrestamo = await prisma.$transaction(async (tx) => {
+      const prestamo = await tx.loan.create({
+        data: {
+          contactName: contactName.trim(),
+          totalAmount: monto,
+          dueAmount: monto,
+          type: tipoEnum,
+          loanDate: fechaPrestamo,
+          dueDate: fechaVencimiento,
+          accountId: relacionCuenta.accountId,
+          userId,
+          ...(cuotas.length ? { installments: { create: cuotas } } : {})
+        }
+      });
+      const movimientoTipo = tipoEnum === 'OTORGADO' ? 'GASTO' : 'INGRESO';
+      await registrarMovimientoPrestamo(tx, {
+        userId,
         accountId: relacionCuenta.accountId,
-        userId: userId,
-        ...(cuotas.length ? { installments: { create: cuotas } } : {})
-      }
+        financialAccountId: cuentaFinanciera.id,
+        amount: monto,
+        type: movimientoTipo,
+        loanType: tipoEnum,
+        contactName: contactName.trim(),
+        date: fechaPrestamo
+      });
+      return prestamo;
     });
 
     res.status(201).json({ exito: true, prestamo: nuevoPrestamo });
@@ -215,6 +285,11 @@ router.patch('/:id/abonar', autenticarToken, async (req, res) => {
       where: { userId: req.usuario.userId }
     });
     if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+    const cuentaFinanciera = await prisma.financialAccount.findFirst({
+      where: { householdAccountId: relacionCuenta.accountId },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el pago.' });
 
     const prestamo = await prisma.loan.findFirst({
       where: { id, accountId: relacionCuenta.accountId }
@@ -240,15 +315,19 @@ router.patch('/:id/abonar', autenticarToken, async (req, res) => {
       });
 
       const prestamoActualizado = await tx.loan.findUnique({ where: { id } });
-      const cuotas = await tx.loanInstallment.findMany({
-        where: { loanId: id },
-        orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }]
+      const movimientoTipo = prestamo.type === 'OTORGADO' ? 'INGRESO' : 'GASTO';
+      await registrarMovimientoPrestamo(tx, {
+        userId: req.usuario.userId,
+        accountId: relacionCuenta.accountId,
+        financialAccountId: cuentaFinanciera.id,
+        amount: montoAbono,
+        type: movimientoTipo,
+        loanType: prestamo.type,
+        contactName: prestamo.contactName,
+        date: fechaPago,
+        loanPaymentId: pago.id
       });
-      const cuotasConPagos = distributePaidAmount(cuotas, prestamoActualizado.totalAmount - prestamoActualizado.dueAmount);
-      await Promise.all(cuotasConPagos.map((cuota) => tx.loanInstallment.update({
-        where: { id: cuota.id },
-        data: { paidAmount: cuota.paidAmount }
-      })));
+      await actualizarCuotasPrestamo(tx, prestamoActualizado);
 
       const prestamoConPagos = await tx.loan.findUnique({
         where: { id },
@@ -269,6 +348,105 @@ router.patch('/:id/abonar', autenticarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al registrar abono:', error);
     res.status(500).json({ error: 'Error al procesar el abono.' });
+  }
+});
+
+router.put('/pagos/:paymentId', autenticarToken, async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const amount = typeof req.body.amount === 'number' || (typeof req.body.amount === 'string' && req.body.amount.trim())
+      ? Number(req.body.amount)
+      : Number.NaN;
+    const date = parseDate(req.body.date);
+    if (!Number.isFinite(amount) || amount <= 0 || !date) {
+      return res.status(400).json({ error: 'El monto y la fecha del pago deben ser válidos.' });
+    }
+
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+    if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+
+    const payment = await prisma.loanPayment.findFirst({
+      where: { id: paymentId, loan: { accountId: relacionCuenta.accountId } },
+      include: { loan: true, transaction: true }
+    });
+    if (!payment) return res.status(404).json({ error: 'Pago no encontrado.' });
+    const dueAmount = payment.loan.dueAmount + payment.amount - amount;
+    if (dueAmount < -0.005) {
+      return res.status(400).json({ error: 'El nuevo monto supera el saldo total del préstamo.' });
+    }
+
+    const cuentaFinanciera = await prisma.financialAccount.findFirst({
+      where: { householdAccountId: relacionCuenta.accountId },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el pago.' });
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      await tx.loan.update({
+        where: { id: payment.loanId },
+        data: { dueAmount: Math.max(0, dueAmount) }
+      });
+      const pago = await tx.loanPayment.update({
+        where: { id: paymentId },
+        data: { amount, date }
+      });
+      const movimientoTipo = payment.loan.type === 'OTORGADO' ? 'INGRESO' : 'GASTO';
+      if (payment.transaction) {
+        await tx.transaction.update({
+          where: { id: payment.transaction.id },
+          data: { amount, date }
+        });
+      } else {
+        await registrarMovimientoPrestamo(tx, {
+          userId: req.usuario.userId,
+          accountId: relacionCuenta.accountId,
+          financialAccountId: cuentaFinanciera.id,
+          amount,
+          type: movimientoTipo,
+          loanType: payment.loan.type,
+          contactName: payment.loan.contactName,
+          date,
+          loanPaymentId: paymentId
+        });
+      }
+      const prestamoActualizado = await tx.loan.findUnique({ where: { id: payment.loanId } });
+      await actualizarCuotasPrestamo(tx, prestamoActualizado);
+      return { prestamo: prestamoActualizado, pago };
+    });
+    res.json({ exito: true, ...resultado });
+  } catch (error) {
+    console.error('Error al actualizar el pago:', error);
+    res.status(500).json({ error: 'Error al actualizar el pago.' });
+  }
+});
+
+router.delete('/pagos/:paymentId', autenticarToken, async (req, res) => {
+  try {
+    const relacionCuenta = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId }
+    });
+    if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
+
+    const payment = await prisma.loanPayment.findFirst({
+      where: { id: req.params.paymentId, loan: { accountId: relacionCuenta.accountId } },
+      include: { loan: true }
+    });
+    if (!payment) return res.status(404).json({ error: 'Pago no encontrado.' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.loanPayment.delete({ where: { id: payment.id } });
+      const prestamo = await tx.loan.update({
+        where: { id: payment.loanId },
+        data: { dueAmount: Math.min(payment.loan.totalAmount, payment.loan.dueAmount + payment.amount) }
+      });
+      await actualizarCuotasPrestamo(tx, prestamo);
+    });
+    res.json({ exito: true, mensaje: 'Pago eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar el pago:', error);
+    res.status(500).json({ error: 'Error al eliminar el pago.' });
   }
 });
 

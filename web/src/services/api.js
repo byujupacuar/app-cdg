@@ -156,4 +156,14 @@ export const abonarPrestamo = async (id, abonoAmount, paymentDate) => {
   return res.data;
 };
 
+export const actualizarPagoPrestamo = async (id, datos) => {
+  const res = await api.put(`/api/prestamos/pagos/${id}`, datos);
+  return res.data;
+};
+
+export const eliminarPagoPrestamo = async (id) => {
+  const res = await api.delete(`/api/prestamos/pagos/${id}`);
+  return res.data;
+};
+
 export default api;

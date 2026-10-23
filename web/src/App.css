@@ -496,6 +496,7 @@ button { color: inherit; }
 .loan-payment-history > small { color: var(--muted); font-size: 9px; }
 .loan-payment-row { align-items: center; color: var(--muted); display: flex; font-size: 10px; justify-content: space-between; }
 .loan-payment-row strong { color: var(--ink); font-size: 10px; }
+.loan-payment-actions { display: flex; gap: 12px; justify-content: flex-end; }
 .loan-payment-history .loan-prior-payments { color: #96702d; }
 
 .account-totals { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 15px; }

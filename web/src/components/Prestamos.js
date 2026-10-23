@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { abonarPrestamo, actualizarPlanPrestamo, crearPrestamo, obtenerPrestamos } from '../services/api';
+import {
+  abonarPrestamo,
+  actualizarPagoPrestamo,
+  actualizarPlanPrestamo,
+  crearPrestamo,
+  eliminarPagoPrestamo,
+  obtenerPrestamos
+} from '../services/api';
 
 const currency = (amount) => new Intl.NumberFormat('es', {
   style: 'currency',
@@ -30,6 +37,9 @@ export default function Prestamos() {
   const [abono, setAbono] = useState('');
   const [paymentDate, setPaymentDate] = useState(todayIsoDate);
   const [prestamoAbono, setPrestamoAbono] = useState(null);
+  const [pagoEditando, setPagoEditando] = useState(null);
+  const [montoPagoEditado, setMontoPagoEditado] = useState('');
+  const [fechaPagoEditada, setFechaPagoEditada] = useState(todayIsoDate);
   const [prestamoPlan, setPrestamoPlan] = useState(null);
   const [planDueDate, setPlanDueDate] = useState('');
   const [planInstallments, setPlanInstallments] = useState([]);
@@ -87,7 +97,9 @@ export default function Prestamos() {
       setLoanDate(todayIsoDate());
       setDueDate('');
       setNewInstallments([]);
-      setMessage(tipoNuevo === 'OTORGADO' ? 'Préstamo registrado: queda pendiente de cobro.' : 'Deuda registrada correctamente.');
+      setMessage(tipoNuevo === 'OTORGADO'
+        ? 'Préstamo registrado como gasto; queda pendiente de cobro.'
+        : 'Préstamo recibido registrado como ingreso; queda pendiente de pago.');
       await loadLoans();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo registrar el préstamo.');
@@ -146,10 +158,58 @@ export default function Prestamos() {
       setPrestamoAbono(null);
       setAbono('');
       setPaymentDate(todayIsoDate());
-      setMessage('Abono registrado. El saldo pendiente se actualizó.');
+      setMessage(prestamoAbono.type === 'OTORGADO'
+        ? 'Pago registrado como ingreso; el saldo pendiente se actualizó.'
+        : 'Pago registrado como gasto; el saldo pendiente se actualizó.');
       await loadLoans();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo registrar el abono.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPaymentEditor = (payment) => {
+    setPagoEditando(payment);
+    setMontoPagoEditado(String(payment.amount));
+    setFechaPagoEditada(String(payment.date).slice(0, 10));
+    setError('');
+  };
+
+  const submitPaymentEdit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    const amount = Number(montoPagoEditado);
+    if (!pagoEditando || !Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada) {
+      setError('Escribe un monto mayor que cero y una fecha válida.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada });
+      setPagoEditando(null);
+      setMessage('Pago actualizado.');
+      await loadLoans();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo actualizar el pago.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deletePayment = async (payment) => {
+    if (!window.confirm('¿Eliminar este pago? También se actualizará el saldo del préstamo.')) return;
+    setError('');
+    setMessage('');
+    setSaving(true);
+    try {
+      await eliminarPagoPrestamo(payment.id);
+      setMessage('Pago eliminado y saldo actualizado.');
+      await loadLoans();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo eliminar el pago.');
     } finally {
       setSaving(false);
     }
@@ -280,9 +340,15 @@ export default function Prestamos() {
                       {payments.length === 0 && priorPayments <= 0.005 ? (
                         <small>Aún no hay pagos registrados.</small>
                       ) : payments.map((payment) => (
-                        <div className="loan-payment-row" key={payment.id}>
-                          <span>{formatDate(payment.date)}</span>
-                          <strong>{currency(payment.amount)}</strong>
+                        <div className="loan-payment-entry" key={payment.id}>
+                          <div className="loan-payment-row">
+                            <span>{formatDate(payment.date)}</span>
+                            <strong>{currency(payment.amount)}</strong>
+                          </div>
+                          <div className="loan-payment-actions">
+                            <button type="button" className="text-button" onClick={() => openPaymentEditor(payment)}>Editar</button>
+                            <button type="button" className="text-button" onClick={() => deletePayment(payment)} disabled={saving}>Eliminar</button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -383,6 +449,30 @@ export default function Prestamos() {
                 {saving ? 'Registrando...' : 'Registrar abono'}
               </button>
               <button className="button-quiet" type="button" onClick={() => setPrestamoAbono(null)}>Cancelar</button>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {pagoEditando && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPagoEditando(null); }}>
+          <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="edit-payment-title">
+            <button className="dialog-close" type="button" aria-label="Cerrar" onClick={() => setPagoEditando(null)}>×</button>
+            <span className="panel-kicker">HISTORIAL</span>
+            <h2 id="edit-payment-title">Editar pago</h2>
+            {error && <div className="inline-error" role="alert">{error}</div>}
+            <form onSubmit={submitPaymentEdit}>
+              <label htmlFor="edit-loan-payment">Monto del pago</label>
+              <div className="budget-amount-field">
+                <span>$</span>
+                <input id="edit-loan-payment" type="number" min="0.01" step="0.01" value={montoPagoEditado} onChange={(event) => setMontoPagoEditado(event.target.value)} required />
+              </div>
+              <label htmlFor="edit-loan-payment-date">Fecha del pago</label>
+              <input id="edit-loan-payment-date" type="date" value={fechaPagoEditada} onChange={(event) => setFechaPagoEditada(event.target.value)} required />
+              <button className="button-primary form-submit" type="submit" disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button className="button-quiet" type="button" onClick={() => setPagoEditando(null)}>Cancelar</button>
             </form>
           </section>
         </div>

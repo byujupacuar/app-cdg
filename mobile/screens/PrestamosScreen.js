@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  TextInput, Modal, Alert, ActivityIndicator, RefreshControl 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Modal, Alert, ActivityIndicator, RefreshControl,
+  KeyboardAvoidingView, Platform
 } from 'react-native';
-import { obtenerPrestamos, crearPrestamo, actualizarPlanPrestamo, abonarPrestamo } from '../api';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import {
+  obtenerPrestamos,
+  crearPrestamo,
+  actualizarPlanPrestamo,
+  abonarPrestamo,
+  actualizarPagoPrestamo,
+  eliminarPagoPrestamo
+} from '../api';
 import { colors } from '../theme';
 
 const fechaHoy = () => {
@@ -16,6 +25,105 @@ const mostrarFecha = (fecha) => {
   const [year, month, day] = String(fecha).slice(0, 10).split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString();
 };
+
+const fechaDesdeIso = (value) => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const fechaAFormatoIso = (date) => (
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+);
+
+function CampoFecha({ value, onChange, placeholder, opcional = false, fieldStyle }) {
+  const [visible, setVisible] = useState(false);
+  const [fechaTemporal, setFechaTemporal] = useState(() => fechaDesdeIso(value));
+
+  const abrirCalendario = () => {
+    setFechaTemporal(fechaDesdeIso(value));
+    setVisible(true);
+  };
+
+  const cambiarFecha = (event, date) => {
+    if (Platform.OS !== 'ios') {
+      setVisible(false);
+      if (event.type === 'set' && date) onChange(fechaAFormatoIso(date));
+      return;
+    }
+    if (date) setFechaTemporal(date);
+  };
+
+  return (
+    <>
+      <View style={[styles.dateFieldRow, fieldStyle]}>
+        <TouchableOpacity
+          style={[styles.input, styles.dateInput, opcional && value && styles.dateInputOptional]}
+          onPress={abrirCalendario}
+          accessibilityRole="button"
+          accessibilityLabel={placeholder}
+        >
+          <Text style={value ? styles.dateValue : styles.datePlaceholder}>
+            {value ? mostrarFecha(value) : placeholder}
+          </Text>
+          <Text style={styles.dateIcon}>▦</Text>
+        </TouchableOpacity>
+        {opcional && value && Platform.OS !== 'ios' && (
+          <TouchableOpacity style={styles.dateClear} onPress={() => onChange('')}>
+            <Text style={styles.dateClearText}>Quitar</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {Platform.OS === 'ios' ? (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.datePickerCard}>
+              <DateTimePicker
+                value={fechaTemporal}
+                mode="date"
+                display="spinner"
+                onChange={cambiarFecha}
+                locale="es"
+              />
+              {opcional && (
+                <TouchableOpacity
+                  style={styles.btnCancelar}
+                  onPress={() => {
+                    onChange('');
+                    setVisible(false);
+                  }}
+                >
+                  <Text style={styles.txtCancelar}>Quitar fecha</Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.datePickerActions}>
+                <TouchableOpacity style={styles.btnCancelar} onPress={() => setVisible(false)}>
+                  <Text style={styles.txtCancelar}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.datePickerConfirm}
+                  onPress={() => {
+                    onChange(fechaAFormatoIso(fechaTemporal));
+                    setVisible(false);
+                  }}
+                >
+                  <Text style={styles.btnTexto}>Aceptar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : visible ? (
+        <DateTimePicker
+          value={fechaTemporal}
+          mode="date"
+          display="default"
+          onChange={cambiarFecha}
+        />
+      ) : null}
+    </>
+  );
+}
 
 export default function PrestamosScreen({ token }) {
   const [loading, setLoading] = useState(true);
@@ -38,6 +146,9 @@ export default function PrestamosScreen({ token }) {
   const [prestamoSeleccionado, setPrestamoSeleccionado] = useState(null);
   const [montoAbono, setMontoAbono] = useState('');
   const [fechaPago, setFechaPago] = useState(fechaHoy);
+  const [pagoEditando, setPagoEditando] = useState(null);
+  const [montoPagoEditado, setMontoPagoEditado] = useState('');
+  const [fechaPagoEditada, setFechaPagoEditada] = useState(fechaHoy);
   const [modalPlanVisible, setModalPlanVisible] = useState(false);
   const [prestamoPlan, setPrestamoPlan] = useState(null);
   const [fechaLimitePlan, setFechaLimitePlan] = useState('');
@@ -81,7 +192,12 @@ export default function PrestamosScreen({ token }) {
     }, token);
 
     if (res.exito) {
-      Alert.alert("¡Registrado! 🚀", "Préstamo creado con éxito.");
+      Alert.alert(
+        '¡Registrado!',
+        tipoNuevo === 'OTORGADO'
+          ? 'Préstamo registrado como gasto, pendiente de cobro.'
+          : 'Préstamo recibido registrado como ingreso, pendiente de pago.'
+      );
       setContacto('');
       setMontoTotal('');
       setFechaPrestamo(fechaHoy());
@@ -132,7 +248,12 @@ export default function PrestamosScreen({ token }) {
 
     const res = await abonarPrestamo(prestamoSeleccionado.id, parseFloat(montoAbono), token, fechaPago);
     if (res.exito) {
-      Alert.alert("¡Abono Registrado!", "El saldo pendiente se ha actualizado.");
+      Alert.alert(
+        '¡Abono registrado!',
+        prestamoSeleccionado.type === 'OTORGADO'
+          ? 'El pago se registró como ingreso y el saldo pendiente se actualizó.'
+          : 'El pago se registró como gasto y el saldo pendiente se actualizó.'
+      );
       setMontoAbono('');
       setFechaPago(fechaHoy());
       setModalAbonarVisible(false);
@@ -141,6 +262,42 @@ export default function PrestamosScreen({ token }) {
     } else {
       Alert.alert("Error", res.mensaje);
     }
+  };
+
+  const abrirEditorPago = (pago) => {
+    setPagoEditando(pago);
+    setMontoPagoEditado(String(pago.amount));
+    setFechaPagoEditada(String(pago.date).slice(0, 10));
+  };
+
+  const handleActualizarPago = async () => {
+    const amount = Number(montoPagoEditado);
+    if (!Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada) {
+      Alert.alert('Datos inválidos', 'Ingresa un monto mayor que cero y una fecha válida.');
+      return;
+    }
+    const res = await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada }, token);
+    if (res.exito) {
+      setPagoEditando(null);
+      cargarDatos();
+    } else {
+      Alert.alert('Error', res.mensaje);
+    }
+  };
+
+  const confirmarEliminarPago = (pago) => {
+    Alert.alert('Eliminar pago', 'Se actualizará el saldo pendiente del préstamo.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          const res = await eliminarPagoPrestamo(pago.id, token);
+          if (res.exito) cargarDatos();
+          else Alert.alert('Error', res.mensaje);
+        }
+      }
+    ]);
   };
 
   const prestamosFiltrados = prestamos.filter(p => p.type === tabTipo);
@@ -296,9 +453,19 @@ export default function PrestamosScreen({ token }) {
                   {pagos.length === 0 && pagosHistoricos <= 0.005 ? (
                     <Text style={styles.sinPagos}>Aún no hay pagos registrados.</Text>
                   ) : pagos.map((pago) => (
-                    <View key={pago.id} style={styles.pagoFila}>
-                      <Text style={styles.pagoFecha}>{mostrarFecha(pago.date)}</Text>
-                      <Text style={styles.pagoMonto}>${Number(pago.amount).toFixed(2)}</Text>
+                    <View key={pago.id} style={styles.pagoItem}>
+                      <View style={styles.pagoFila}>
+                        <Text style={styles.pagoFecha}>{mostrarFecha(pago.date)}</Text>
+                        <Text style={styles.pagoMonto}>${Number(pago.amount).toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.pagoAcciones}>
+                        <TouchableOpacity onPress={() => abrirEditorPago(pago)}>
+                          <Text style={styles.pagoAccion}>Editar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => confirmarEliminarPago(pago)}>
+                          <Text style={[styles.pagoAccion, styles.pagoEliminar]}>Eliminar</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -316,7 +483,15 @@ export default function PrestamosScreen({ token }) {
       {/* Modal Crear Préstamo */}
       <Modal visible={modalCrearVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
+          <KeyboardAvoidingView
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              contentContainerStyle={styles.modalScroll}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
+            >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitulo}>Nuevo Registro de Préstamo</Text>
 
@@ -352,32 +527,28 @@ export default function PrestamosScreen({ token }) {
               onChangeText={setMontoTotal} 
             />
 
-            <Text style={styles.label}>Fecha del préstamo (AAAA-MM-DD):</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="AAAA-MM-DD"
+            <Text style={styles.label}>Fecha del préstamo:</Text>
+            <CampoFecha
               value={fechaPrestamo}
-              onChangeText={setFechaPrestamo}
-              maxLength={10}
+              onChange={setFechaPrestamo}
+              placeholder="Selecciona la fecha"
             />
 
             <Text style={styles.label}>Fecha límite general (opcional):</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="AAAA-MM-DD"
+            <CampoFecha
               value={fechaVencimiento}
-              onChangeText={setFechaVencimiento}
-              maxLength={10}
+              onChange={setFechaVencimiento}
+              placeholder="Selecciona una fecha"
+              opcional
             />
             <Text style={styles.label}>Cuotas mensuales (opcional):</Text>
             {cuotasNuevas.map((cuota, index) => (
               <View key={`nueva-cuota-${index}`} style={styles.cuotaEditor}>
-                <TextInput
-                  style={[styles.input, styles.cuotaInput]}
-                  placeholder="Fecha AAAA-MM-DD"
+                <CampoFecha
                   value={cuota.dueDate}
-                  onChangeText={(value) => setCuotasNuevas((actuales) => actuales.map((actual, i) => i === index ? { ...actual, dueDate: value } : actual))}
-                  maxLength={10}
+                  onChange={(value) => setCuotasNuevas((actuales) => actuales.map((actual, i) => i === index ? { ...actual, dueDate: value } : actual))}
+                  placeholder="Fecha de cuota"
+                  fieldStyle={styles.cuotaFecha}
                 />
                 <TextInput
                   style={[styles.input, styles.cuotaMontoInput]}
@@ -404,32 +575,39 @@ export default function PrestamosScreen({ token }) {
             </TouchableOpacity>
           </View>
           </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
       <Modal visible={modalPlanVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
+          <KeyboardAvoidingView
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+          <ScrollView
+            contentContainerStyle={styles.modalScroll}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
             <View style={styles.modalContent}>
               <Text style={styles.modalTitulo}>Plan de pagos · {prestamoPlan?.contactName}</Text>
               <Text style={styles.subtextModal}>Las cuotas deben sumar ${Number(prestamoPlan?.totalAmount || 0).toFixed(2)}.</Text>
               <Text style={styles.label}>Fecha límite general (opcional):</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="AAAA-MM-DD"
+              <CampoFecha
                 value={fechaLimitePlan}
-                onChangeText={setFechaLimitePlan}
-                maxLength={10}
+                onChange={setFechaLimitePlan}
+                placeholder="Selecciona una fecha"
+                opcional
               />
               <Text style={styles.label}>Cuotas mensuales:</Text>
               {cuotasPlan.map((cuota, index) => (
                 <View key={`plan-cuota-${index}`} style={styles.cuotaEditor}>
-                  <TextInput
-                    style={[styles.input, styles.cuotaInput]}
-                    placeholder="Fecha AAAA-MM-DD"
+                  <CampoFecha
                     value={cuota.dueDate}
-                    onChangeText={(value) => setCuotasPlan((actuales) => actuales.map((actual, i) => i === index ? { ...actual, dueDate: value } : actual))}
-                    maxLength={10}
+                    onChange={(value) => setCuotasPlan((actuales) => actuales.map((actual, i) => i === index ? { ...actual, dueDate: value } : actual))}
+                    placeholder="Fecha de cuota"
+                    fieldStyle={styles.cuotaFecha}
                   />
                   <TextInput
                     style={[styles.input, styles.cuotaMontoInput]}
@@ -454,12 +632,22 @@ export default function PrestamosScreen({ token }) {
               </TouchableOpacity>
             </View>
           </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
       {/* Modal Abonar */}
       <Modal visible={modalAbonarVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+          <ScrollView
+            contentContainerStyle={styles.modalScroll}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitulo}>Abonar a {prestamoSeleccionado?.contactName}</Text>
             <Text style={styles.subtextModal}>Saldo Pendiente: ${prestamoSeleccionado?.dueAmount.toFixed(2)}</Text>
@@ -473,13 +661,11 @@ export default function PrestamosScreen({ token }) {
               onChangeText={setMontoAbono} 
             />
 
-            <Text style={styles.label}>Fecha del pago (AAAA-MM-DD):</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="AAAA-MM-DD"
+            <Text style={styles.label}>Fecha del pago:</Text>
+            <CampoFecha
               value={fechaPago}
-              onChangeText={setFechaPago}
-              maxLength={10}
+              onChange={setFechaPago}
+              placeholder="Selecciona la fecha"
             />
 
             <TouchableOpacity style={styles.btnGuardar} onPress={handleAbonar}>
@@ -490,6 +676,46 @@ export default function PrestamosScreen({ token }) {
               <Text style={styles.txtCancelar}>Cancelar</Text>
             </TouchableOpacity>
           </View>
+          </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={Boolean(pagoEditando)} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+          <ScrollView
+            contentContainerStyle={styles.modalScroll}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitulo}>Editar pago</Text>
+            <Text style={styles.label}>Monto del pago ($):</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={montoPagoEditado}
+              onChangeText={setMontoPagoEditado}
+            />
+            <Text style={styles.label}>Fecha del pago:</Text>
+            <CampoFecha
+              value={fechaPagoEditada}
+              onChange={setFechaPagoEditada}
+              placeholder="Selecciona la fecha"
+            />
+            <TouchableOpacity style={styles.btnGuardar} onPress={handleActualizarPago}>
+              <Text style={styles.btnTexto}>Guardar cambios</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnCancelar} onPress={() => setPagoEditando(null)}>
+              <Text style={styles.txtCancelar}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+          </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -534,10 +760,26 @@ const styles = StyleSheet.create({
   cuotaEditor: { flexDirection: 'row', alignItems: 'center' },
   cuotaInput: { flex: 1, marginRight: 5 },
   cuotaMontoInput: { width: 86, marginRight: 5 },
+  dateFieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  dateInput: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 },
+  dateInputOptional: { marginRight: 8 },
+  cuotaFecha: { flex: 1, marginRight: 5 },
+  dateValue: { color: colors.ink, fontSize: 14 },
+  datePlaceholder: { color: colors.muted, fontSize: 14 },
+  dateIcon: { color: colors.green800, fontSize: 18, fontWeight: '700' },
+  dateClear: { paddingHorizontal: 6, paddingVertical: 8 },
+  dateClearText: { color: colors.red, fontSize: 11, fontWeight: '700' },
+  datePickerCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 16 },
+  datePickerActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  datePickerConfirm: { backgroundColor: colors.green800, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 9, marginLeft: 8 },
   quitarCuota: { color: colors.red, fontSize: 23, fontWeight: '700', paddingHorizontal: 5, paddingBottom: 10 },
   historialPagos: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: 12, paddingTop: 10 },
   historialTitulo: { color: colors.green950, fontSize: 11, fontWeight: '700', marginBottom: 6 },
   pagoFila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  pagoItem: { paddingVertical: 3 },
+  pagoAcciones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16 },
+  pagoAccion: { color: colors.green800, fontSize: 11, fontWeight: '700', paddingVertical: 3 },
+  pagoEliminar: { color: colors.red },
   pagoFecha: { color: colors.muted, fontSize: 11 },
   pagoMonto: { color: colors.ink, fontSize: 11, fontWeight: '700' },
   pagoAnterior: { color: colors.amber, fontSize: 10, marginBottom: 5 },
@@ -547,6 +789,7 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', right: 20, bottom: 20, backgroundColor: colors.blue700, width: 54, height: 54, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   fabIcon: { color: colors.white, fontSize: 28, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(23,37,84,0.28)', justifyContent: 'center', padding: 18 },
+  keyboardContainer: { flex: 1, justifyContent: 'center' },
   modalScroll: { flexGrow: 1, justifyContent: 'center' },
   modalContent: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 22 },
   modalTitulo: { fontSize: 18, fontWeight: '700', color: colors.green950, marginBottom: 14 },
