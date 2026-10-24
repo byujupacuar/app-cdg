@@ -81,8 +81,8 @@ export const ajustarSaldoCuentaFinanciera = async (id, saldoActual) => {
   return res.data;
 };
 
-export const obtenerTransferencias = async () => {
-  const res = await api.get('/api/cuentas/financieras/transferencias');
+export const obtenerTransferencias = async (params) => {
+  const res = await api.get('/api/cuentas/financieras/transferencias', { params });
   return res.data;
 };
 

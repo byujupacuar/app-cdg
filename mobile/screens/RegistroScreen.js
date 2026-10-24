@@ -9,6 +9,7 @@ import {
   obtenerCuentasFinancieras,
   guardarMovimientoReal,
   obtenerMovimientosReal,
+  obtenerTransferencias,
   actualizarMovimientoReal,
   eliminarMovimientoReal
 } from '../api';
@@ -27,6 +28,7 @@ export default function RegistroScreen({ token, navigation, route }) {
   
   const [categorias, setCategorias] = useState([]);
   const [cuentas, setCuentas] = useState([]);
+  const [transferencias, setTransferencias] = useState([]);
   const [cuentaFinancieraId, setCuentaFinancieraId] = useState(null);
   const [loadingCats, setLoadingCats] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
@@ -93,8 +95,19 @@ export default function RegistroScreen({ token, navigation, route }) {
         }
       };
 
+      const cargarTransferencias = async () => {
+        const res = await obtenerTransferencias(token, { completo: true });
+        if (!activa) return;
+        if (res.exito) {
+          setTransferencias(res.transferencias || []);
+        } else {
+          Alert.alert("Error", res.mensaje || "No se pudieron cargar las transferencias para exportar.");
+        }
+      };
+
       cargarCategorias();
       cargarCuentas();
+      cargarTransferencias();
       cargarMovimientos(() => activa);
       return () => {
         activa = false;
@@ -221,17 +234,51 @@ export default function RegistroScreen({ token, navigation, route }) {
   const ingresosPeriodo = movimientosPeriodo.filter((item) => item.type === 'INGRESO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const gastosPeriodo = movimientosPeriodo.filter((item) => item.type === 'GASTO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const exportarCsv = async () => {
-    const escapar = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
-    const filas = [
-      ['Fecha', 'Tipo', 'Descripción', 'Categoría', 'Cuenta', 'Monto'],
+    const escapar = (valor) => {
+      const texto = String(valor ?? '');
+      const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+      return `"${seguro.replace(/"/g, '""')}"`;
+    };
+    const filasDatos = [
       ...movimientosFiltrados.map((item) => [
         item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
         item.type,
-        item.description,
         item.category?.name,
+        item.description,
         item.financialAccount?.name,
+        '',
+        '',
         Number(item.amount || 0).toFixed(2)
-      ])
+      ]),
+      ...transferencias
+        .filter((item) => filtroTipo === 'TODOS')
+        .filter((item) => !filtroCuenta
+          || item.fromFinancialAccount?.id === filtroCuenta
+          || item.toFinancialAccount?.id === filtroCuenta)
+        .filter((item) => {
+          const consulta = busqueda.trim().toLocaleLowerCase();
+          if (!consulta) return true;
+          return [
+            item.description,
+            item.fromFinancialAccount?.name,
+            item.toFinancialAccount?.name,
+            'transferencia'
+          ].some((valor) => String(valor || '').toLocaleLowerCase().includes(consulta));
+        })
+        .map((item) => [
+          item.date ? new Date(item.date).toISOString().slice(0, 10) : '',
+          'Transferencia',
+          '',
+          item.description || 'Sin detalle',
+          '',
+          item.fromFinancialAccount?.name || '',
+          item.toFinancialAccount?.name || '',
+          Number(item.amount || 0).toFixed(2)
+        ])
+    ].sort((a, b) => b[0].localeCompare(a[0]));
+    const filas = [
+      ['Fecha', 'Tipo', 'Categoría', 'Detalle', 'Cuenta', 'Cuenta de origen', 'Cuenta de destino', 'Monto'],
+      ...filasDatos
     ];
     try {
       await Share.share({

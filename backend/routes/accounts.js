@@ -342,7 +342,7 @@ router.get('/financieras/transferencias', autenticarToken, async (req, res) => {
       where: { householdAccountId: relacion.accountId },
       include: { fromFinancialAccount: true, toFinancialAccount: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      take: 30
+      ...(req.query.completo === 'true' ? {} : { take: 30 })
     });
 
     res.json({ exito: true, transferencias });

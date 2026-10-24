@@ -998,10 +998,11 @@ export const obtenerCuentasFinancieras = async (token) => {
   }
 };
 
-export const obtenerTransferencias = async (token) => {
+export const obtenerTransferencias = async (token, { completo = false } = {}) => {
   try {
     const respuesta = await axios.get(API_URL + '/api/cuentas/financieras/transferencias', {
-      headers: { Authorization: 'Bearer ' + token }
+      headers: { Authorization: 'Bearer ' + token },
+      params: completo ? { completo: true } : undefined
     });
     const transferencias = await combinarTransferenciasPendientes(respuesta.data.transferencias);
     await cacheSet('transfers', transferencias);

@@ -2,6 +2,8 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -238,6 +240,10 @@ export default function CuentasScreen({ token }) {
   );
 
   return (
+    <KeyboardAvoidingView
+      style={styles.keyboardContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.titulo}>Cuentas</Text>
       <Text style={styles.intro}>Consulta tu patrimonio y administra tus fuentes de dinero.</Text>
@@ -437,10 +443,12 @@ export default function CuentasScreen({ token }) {
         ))}
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardContainer: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.canvas },
   content: { padding: 18, paddingTop: 22, paddingBottom: 32 },
   titulo: { color: colors.ink, fontSize: 23, fontWeight: '800', letterSpacing: -0.5 },

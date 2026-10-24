@@ -5,7 +5,8 @@ import {
   guardarMovimiento,
   obtenerMovimientos,
   actualizarMovimiento,
-  eliminarMovimiento
+  eliminarMovimiento,
+  obtenerTransferencias
 } from '../services/api';
 
 const currency = (amount) => new Intl.NumberFormat('es', {
@@ -24,6 +25,7 @@ export default function Registro({ onGuardado, onNavigate }) {
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
+  const [transferencias, setTransferencias] = useState([]);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
   const [editandoId, setEditandoId] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
@@ -73,8 +75,17 @@ export default function Registro({ onGuardado, onNavigate }) {
         if (activo) setError(err.response?.data?.error || 'No se pudieron cargar las cuentas.');
       }
     };
+    const cargarTransferencias = async () => {
+      try {
+        const res = await obtenerTransferencias({ completo: true });
+        if (activo) setTransferencias(res.transferencias || []);
+      } catch (err) {
+        if (activo) setError(err.response?.data?.error || 'No se pudieron cargar las transferencias para exportar.');
+      }
+    };
     cargarCategorias();
     cargarCuentas();
+    cargarTransferencias();
     cargarMovimientos(() => activo);
     return () => { activo = false; };
   }, []);
@@ -182,6 +193,20 @@ export default function Registro({ onGuardado, onNavigate }) {
       (!fechaFin || fecha <= fechaFin) &&
       (!consulta || texto.includes(consulta));
   });
+  const transferenciasFiltradas = transferencias.filter((transferencia) => {
+    const fecha = String(transferencia.date || '').slice(0, 10);
+    const consulta = busqueda.trim().toLocaleLowerCase();
+    const texto = [
+      transferencia.description,
+      transferencia.fromFinancialAccount?.name,
+      transferencia.toFinancialAccount?.name,
+      'transferencia'
+    ].filter(Boolean).join(' ').toLocaleLowerCase();
+    return filtroTipo === 'TODOS' &&
+      (!fechaInicio || fecha >= fechaInicio) &&
+      (!fechaFin || fecha <= fechaFin) &&
+      (!consulta || texto.includes(consulta));
+  });
   const ingresosFiltrados = movimientosFiltrados
     .filter((movimiento) => movimiento.type === 'INGRESO')
     .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
@@ -190,17 +215,36 @@ export default function Registro({ onGuardado, onNavigate }) {
     .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
 
   const exportarCSV = () => {
-    const valorCSV = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const rows = [
-      ['Fecha', 'Tipo', 'Categoría', 'Detalle', 'Cuenta', 'Monto'],
+    const valorCSV = (value) => {
+      const texto = String(value ?? '');
+      const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+      return `"${seguro.replace(/"/g, '""')}"`;
+    };
+    const rowsData = [
       ...movimientosFiltrados.map((movimiento) => [
         String(movimiento.date || '').slice(0, 10),
         movimiento.type === 'INGRESO' ? 'Ingreso' : 'Gasto',
         movimiento.category?.name || 'General',
         movimiento.description || 'Sin detalle',
         movimiento.financialAccount?.name || '',
+        '',
+        '',
         Number(movimiento.amount) || 0
+      ]),
+      ...transferenciasFiltradas.map((transferencia) => [
+        String(transferencia.date || '').slice(0, 10),
+        'Transferencia',
+        '',
+        transferencia.description || 'Sin detalle',
+        '',
+        transferencia.fromFinancialAccount?.name || '',
+        transferencia.toFinancialAccount?.name || '',
+        Number(transferencia.amount) || 0
       ])
+    ].sort((a, b) => b[0].localeCompare(a[0]));
+    const rows = [
+      ['Fecha', 'Tipo', 'Categoría', 'Detalle', 'Cuenta', 'Cuenta de origen', 'Cuenta de destino', 'Monto'],
+      ...rowsData
     ];
     const csv = `\uFEFF${rows.map((row) => row.map(valorCSV).join(',')).join('\r\n')}`;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -389,7 +433,12 @@ export default function Registro({ onGuardado, onNavigate }) {
             <span className="panel-kicker">HISTORIAL · {movimientosFiltrados.length} REGISTROS</span>
             <h2>Movimientos registrados</h2>
           </div>
-          <button className="button-secondary" type="button" onClick={exportarCSV} disabled={!movimientosFiltrados.length}>
+          <button
+            className="button-secondary"
+            type="button"
+            onClick={exportarCSV}
+            disabled={!movimientosFiltrados.length && !transferenciasFiltradas.length}
+          >
             ↓ Exportar CSV
           </button>
         </div>

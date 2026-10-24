@@ -234,22 +234,51 @@ router.get('/exportar.csv', autenticarToken, async (req, res) => {
       include: { category: true, financialAccount: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
     });
+    const transferencias = await prisma.financialAccountTransfer.findMany({
+      where: {
+        householdAccountId: relacionCuenta.accountId,
+        ...(Object.keys(date).length > 0 && { date }),
+        ...(financialAccountId && {
+          OR: [
+            { fromFinancialAccountId: financialAccountId },
+            { toFinancialAccountId: financialAccountId }
+          ]
+        })
+      },
+      include: { fromFinancialAccount: true, toFinancialAccount: true },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+    });
 
     const protegerCelda = (valor) => {
       const texto = String(valor ?? '');
       const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
       return `"${seguro.replace(/"/g, '""')}"`;
     };
-    const filas = [
-      ['Fecha', 'Cuenta', 'Tipo', 'Categoría', 'Descripción', 'Monto'],
+    const filasDatos = [
       ...movimientos.map((movimiento) => [
-        movimiento.date.toISOString(),
-        movimiento.financialAccount?.name || 'Sin cuenta',
+        movimiento.date.toISOString().slice(0, 10),
         movimiento.type,
         movimiento.category?.name || 'General',
         movimiento.description || 'Sin detalle',
+        movimiento.financialAccount?.name || 'Sin cuenta',
+        '',
+        '',
         String(movimiento.amount)
+      ]),
+      ...transferencias.map((transferencia) => [
+        transferencia.date.toISOString().slice(0, 10),
+        'Transferencia',
+        '',
+        transferencia.description || 'Sin detalle',
+        '',
+        transferencia.fromFinancialAccount?.name || '',
+        transferencia.toFinancialAccount?.name || '',
+        String(transferencia.amount)
       ])
+    ].sort((a, b) => b[0].localeCompare(a[0]));
+    const filas = [
+      ['Fecha', 'Tipo', 'Categoría', 'Detalle', 'Cuenta', 'Cuenta de origen', 'Cuenta de destino', 'Monto'],
+      ...filasDatos
     ];
     const csv = `\uFEFF${filas.map((fila) => fila.map(protegerCelda).join(',')).join('\r\n')}`;
     const desde = typeof fechaInicio === 'string' ? fechaInicio : 'todo';
