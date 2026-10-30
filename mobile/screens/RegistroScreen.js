@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
-  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Share
+  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Modal
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
@@ -15,6 +16,89 @@ import {
 } from '../api';
 import { colors } from '../theme';
 
+const fechaActualLocal = () => {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+};
+
+const fechaDesdeIso = (value) => {
+  const [year, month, day] = String(value || fechaActualLocal()).slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const fechaAFormatoIso = (date) => (
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+);
+
+const mostrarFechaMovimiento = (value, options) => {
+  if (!value) return '';
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('es', options);
+};
+
+function SelectorFechaMovimiento({ value, onChange }) {
+  const [visible, setVisible] = useState(false);
+  const [fechaTemporal, setFechaTemporal] = useState(() => fechaDesdeIso(value));
+
+  const abrirCalendario = () => {
+    setFechaTemporal(fechaDesdeIso(value));
+    setVisible(true);
+  };
+  const cambiarFecha = (event, date) => {
+    if (Platform.OS !== 'ios') {
+      setVisible(false);
+      if (event.type === 'set' && date) onChange(fechaAFormatoIso(date));
+      return;
+    }
+    if (date) setFechaTemporal(date);
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.fechaInput}
+        onPress={abrirCalendario}
+        accessibilityRole="button"
+        accessibilityLabel="Fecha del movimiento"
+      >
+        <Text style={styles.fechaTexto}>{mostrarFechaMovimiento(value)}</Text>
+        <Text style={styles.fechaIcono}>▦</Text>
+      </TouchableOpacity>
+      {Platform.OS === 'ios' ? (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+          <View style={styles.fechaModalOverlay}>
+            <View style={styles.fechaPickerCard}>
+              <DateTimePicker
+                value={fechaTemporal}
+                mode="date"
+                display="spinner"
+                onChange={cambiarFecha}
+                locale="es"
+              />
+              <View style={styles.fechaPickerActions}>
+                <TouchableOpacity style={styles.fechaCancelar} onPress={() => setVisible(false)}>
+                  <Text style={styles.fechaCancelarTexto}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.fechaConfirmar}
+                  onPress={() => {
+                    onChange(fechaAFormatoIso(fechaTemporal));
+                    setVisible(false);
+                  }}
+                >
+                  <Text style={styles.fechaConfirmarTexto}>Aceptar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : visible ? (
+        <DateTimePicker value={fechaTemporal} mode="date" display="default" onChange={cambiarFecha} />
+      ) : null}
+    </>
+  );
+}
+
 export default function RegistroScreen({ token, navigation, route }) {
   const scrollRef = useRef(null);
   const [tipo, setTipo] = useState('GASTO'); // 'GASTO' | 'INGRESO'
@@ -24,6 +108,7 @@ export default function RegistroScreen({ token, navigation, route }) {
   const [filtroCuenta, setFiltroCuenta] = useState(null);
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [fechaMovimiento, setFechaMovimiento] = useState(fechaActualLocal);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   
   const [categorias, setCategorias] = useState([]);
@@ -118,6 +203,7 @@ export default function RegistroScreen({ token, navigation, route }) {
   const limpiarFormulario = () => {
     setMonto('');
     setDescripcion('');
+    setFechaMovimiento(fechaActualLocal());
     setEditandoId(null);
   };
 
@@ -126,6 +212,7 @@ export default function RegistroScreen({ token, navigation, route }) {
     setEditandoId(movimiento.id);
     setMonto(String(movimiento.amount));
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
+    setFechaMovimiento(String(movimiento.date || '').slice(0, 10) || fechaActualLocal());
     setTipo(movimiento.type);
     setCategoriaSeleccionada(movimiento.category?.name || null);
     setCuentaFinancieraId(movimiento.financialAccountId || null);
@@ -153,7 +240,8 @@ export default function RegistroScreen({ token, navigation, route }) {
       type: tipo,
       categoryName: categoriaSeleccionada,
       financialAccountId: cuentaFinancieraId,
-      description: descripcion || 'Sin detalle'
+      description: descripcion || 'Sin detalle',
+      date: fechaMovimiento
     };
     const res = editandoId
       ? await actualizarMovimientoReal(editandoId, datosMovimiento, token)
@@ -225,9 +313,9 @@ export default function RegistroScreen({ token, navigation, route }) {
       ].some((valor) => String(valor || '').toLocaleLowerCase().includes(consulta));
     });
   const fechaActual = new Date();
+  const periodoActual = fechaActualLocal().slice(0, 7);
   const movimientosPeriodo = movimientosFiltrados.filter((movimiento) => {
-    const fecha = new Date(movimiento.date);
-    return fecha.getFullYear() === fechaActual.getFullYear() && fecha.getMonth() === fechaActual.getMonth();
+    return String(movimiento.date || '').slice(0, 7) === periodoActual;
   });
   const totalPeriodo = movimientosPeriodo.reduce((total, movimiento) =>
     total + (movimiento.type === 'INGRESO' ? 1 : -1) * Number(movimiento.amount || 0), 0);
@@ -384,6 +472,9 @@ export default function RegistroScreen({ token, navigation, route }) {
         onChangeText={setMonto} 
       />
 
+      <Text style={styles.label}>Fecha</Text>
+      <SelectorFechaMovimiento value={fechaMovimiento} onChange={setFechaMovimiento} />
+
       <View style={styles.etiquetaCuenta}>
         <Text style={styles.label}>Cuenta</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
@@ -492,10 +583,10 @@ export default function RegistroScreen({ token, navigation, route }) {
         ) : (
           movimientosFiltrados.map((movimiento, index) => {
             const fechaGrupo = movimiento.date
-              ? new Date(movimiento.date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })
+              ? mostrarFechaMovimiento(movimiento.date, { weekday: 'long', day: 'numeric', month: 'long' })
               : 'Sin fecha';
             const fechaAnterior = index > 0 && movimientosFiltrados[index - 1].date
-              ? new Date(movimientosFiltrados[index - 1].date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })
+              ? mostrarFechaMovimiento(movimientosFiltrados[index - 1].date, { weekday: 'long', day: 'numeric', month: 'long' })
               : null;
             return (
             <React.Fragment key={movimiento.id}>
@@ -510,7 +601,7 @@ export default function RegistroScreen({ token, navigation, route }) {
                 </Text>
                 <Text style={styles.movimientoFecha}>
                   {movimiento.financialAccount?.name ? `${movimiento.financialAccount.name} · ` : ''}
-                  {movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}
+                  {mostrarFechaMovimiento(movimiento.date)}
                 </Text>
               </View>
               <View style={styles.movimientoAcciones}>
@@ -586,6 +677,16 @@ const styles = StyleSheet.create({
   txtTipo: { fontSize: 13, fontWeight: '700', color: colors.muted },
   txtActivo: { color: colors.blue700 },
   label: { fontSize: 12, fontWeight: '700', color: '#5f6d64', marginBottom: 7, marginTop: 10 },
+  fechaInput: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, marginBottom: 8 },
+  fechaTexto: { color: colors.ink, fontSize: 14 },
+  fechaIcono: { color: colors.blue700, fontSize: 17 },
+  fechaModalOverlay: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.35)' },
+  fechaPickerCard: { backgroundColor: colors.white, borderRadius: 16, padding: 12 },
+  fechaPickerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
+  fechaCancelar: { paddingVertical: 11, paddingHorizontal: 14 },
+  fechaCancelarTexto: { color: colors.muted, fontWeight: '700' },
+  fechaConfirmar: { backgroundColor: colors.blue700, paddingVertical: 11, paddingHorizontal: 18, borderRadius: 9 },
+  fechaConfirmarTexto: { color: colors.white, fontWeight: '700' },
   etiquetaCuenta: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   linkCuenta: { color: colors.green800, fontSize: 11, fontWeight: '700', marginBottom: 7 },
   tipoCuenta: { color: colors.muted, fontSize: 9, marginTop: 3 },

@@ -14,10 +14,22 @@ const currency = (amount) => new Intl.NumberFormat('es', {
   currency: 'USD'
 }).format(Number(amount) || 0);
 
+const fechaActualLocal = () => {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+};
+
+const mostrarFechaMovimiento = (value) => {
+  if (!value) return '';
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+};
+
 export default function Registro({ onGuardado, onNavigate }) {
   const [tipo, setTipo] = useState('GASTO');
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [fechaMovimiento, setFechaMovimiento] = useState(fechaActualLocal);
   const [categorias, setCategorias] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [cuentaFinancieraId, setCuentaFinancieraId] = useState('');
@@ -122,7 +134,8 @@ export default function Registro({ onGuardado, onNavigate }) {
         type: tipo,
         categoryName: categoriaSel,
         financialAccountId: cuentaFinancieraId,
-        description: descripcion.trim() || 'Sin detalle'
+        description: descripcion.trim() || 'Sin detalle',
+        date: fechaMovimiento
       };
       if (editandoId) {
         await actualizarMovimiento(editandoId, datosMovimiento);
@@ -143,6 +156,7 @@ export default function Registro({ onGuardado, onNavigate }) {
   const limpiarFormulario = () => {
     setMonto('');
     setDescripcion('');
+    setFechaMovimiento(fechaActualLocal());
     setEditandoId(null);
   };
 
@@ -151,6 +165,7 @@ export default function Registro({ onGuardado, onNavigate }) {
     setTipo(movimiento.type);
     setMonto(String(movimiento.amount));
     setDescripcion(movimiento.description === 'Sin detalle' ? '' : movimiento.description || '');
+    setFechaMovimiento(String(movimiento.date || '').slice(0, 10) || fechaActualLocal());
     setCategoriaSel(movimiento.category?.name || '');
     setCuentaFinancieraId(movimiento.financialAccountId || '');
     setError('');
@@ -332,6 +347,16 @@ export default function Registro({ onGuardado, onNavigate }) {
               />
             </div>
 
+            <label htmlFor="movement-date">Fecha</label>
+            <input
+              id="movement-date"
+              className="form-text-input"
+              type="date"
+              value={fechaMovimiento}
+              onChange={(event) => setFechaMovimiento(event.target.value)}
+              required
+            />
+
             <div className="form-label-row">
               <label htmlFor="movement-account">Cuenta</label>
               <button className="text-button" type="button" onClick={() => onNavigate('cuentas')}>
@@ -484,7 +509,7 @@ export default function Registro({ onGuardado, onNavigate }) {
                   <strong>{movimiento.category?.name || 'General'}</strong>
                   <span>{movimiento.description || 'Sin detalle'}</span>
                   {movimiento.financialAccount?.name && <small>{movimiento.financialAccount.name}</small>}
-                  <small>{movimiento.date ? new Date(movimiento.date).toLocaleDateString() : ''}</small>
+                  <small>{mostrarFechaMovimiento(movimiento.date)}</small>
                 </div>
                 <div className="transaction-history-actions">
                   <strong className={movimiento.type === 'INGRESO' ? 'amount-positive' : 'amount-negative'}>

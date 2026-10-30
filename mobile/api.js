@@ -232,9 +232,8 @@ const guardarMovimientoLocal = async (id, datos, action) => {
 
   const ahora = new Date();
   const movimientosMes = actualizados.filter((item) => {
-    const movimientoDate = new Date(item.date);
-    return movimientoDate.getFullYear() === ahora.getFullYear()
-      && movimientoDate.getMonth() === ahora.getMonth();
+    return String(item.date || '').slice(0, 7)
+      === `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`;
   });
   const totalIngresos = movimientosMes
     .filter((item) => item.type === 'INGRESO')

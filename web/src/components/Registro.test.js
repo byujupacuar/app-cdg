@@ -5,7 +5,9 @@ import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
   obtenerMovimientos,
-  obtenerTransferencias
+  obtenerTransferencias,
+  actualizarMovimiento,
+  guardarMovimiento
 } from '../services/api';
 
 jest.mock('../services/api', () => ({
@@ -22,7 +24,9 @@ describe('Registro', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     obtenerCategorias.mockResolvedValue({ categorias: [] });
-    obtenerCuentasFinancieras.mockResolvedValue({ cuentas: [] });
+    obtenerCuentasFinancieras.mockResolvedValue({
+      cuentas: [{ id: 'account-1', name: 'Cuenta principal', type: 'EFECTIVO' }]
+    });
     obtenerTransferencias.mockResolvedValue({ transferencias: [] });
     obtenerMovimientos.mockResolvedValue({
       movimientos: [
@@ -31,6 +35,7 @@ describe('Registro', () => {
           type: 'GASTO',
           amount: 42,
           date: '2026-10-18T12:00:00.000Z',
+          financialAccountId: 'account-1',
           description: 'Compra semanal',
           category: { name: 'Supermercado', icon: '🛒' },
           financialAccount: { name: 'Cuenta principal' }
@@ -76,6 +81,7 @@ describe('Registro', () => {
     const createObjectURL = jest.fn(() => 'blob:csv');
     const originalCreateObjectURL = URL.createObjectURL;
     URL.createObjectURL = createObjectURL;
+    URL.revokeObjectURL = jest.fn();
 
     render(<Registro />);
 
@@ -86,5 +92,43 @@ describe('Registro', () => {
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
 
     URL.createObjectURL = originalCreateObjectURL;
+  });
+
+  test('loads and saves the selected date when editing a movement', async () => {
+    obtenerCategorias.mockResolvedValue({
+      categorias: [{ id: 'category-1', name: 'Supermercado', type: 'GASTO' }]
+    });
+    render(<Registro />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar movimiento Supermercado' }));
+
+    const dateInput = screen.getByLabelText('Fecha');
+    expect(dateInput).toHaveValue('2026-10-18');
+    await waitFor(() => expect(screen.getByLabelText('Cuenta')).toHaveValue('account-1'));
+    fireEvent.change(dateInput, { target: { value: '2026-10-12' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/i }));
+
+    await waitFor(() => expect(actualizarMovimiento).toHaveBeenCalledWith(
+      'expense-1',
+      expect.objectContaining({ date: '2026-10-12' })
+    ));
+  });
+
+  test('saves the selected date when creating a movement', async () => {
+    obtenerCategorias.mockResolvedValue({
+      categorias: [{ id: 'category-1', name: 'Supermercado', type: 'GASTO' }]
+    });
+    obtenerMovimientos.mockResolvedValue({ movimientos: [] });
+    render(<Registro />);
+
+    await waitFor(() => expect(screen.getByLabelText('Cuenta')).toHaveValue('account-1'));
+    fireEvent.change(screen.getByLabelText('¿Cuánto?'), { target: { value: '18.50' } });
+    fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-10-12' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Supermercado/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar movimiento/i }));
+
+    await waitFor(() => expect(guardarMovimiento).toHaveBeenCalledWith(
+      expect.objectContaining({ date: '2026-10-12' })
+    ));
   });
 });

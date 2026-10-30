@@ -7,6 +7,15 @@ const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
 
+const parsearFechaMovimiento = (valor) => {
+  if (typeof valor !== 'string') return null;
+  const esFechaCorta = /^\d{4}-\d{2}-\d{2}$/.test(valor);
+  const fecha = esFechaCorta ? new Date(`${valor}T12:00:00.000Z`) : new Date(valor);
+  if (Number.isNaN(fecha.getTime())) return null;
+  if (esFechaCorta && fecha.toISOString().slice(0, 10) !== valor) return null;
+  return fecha;
+};
+
 // Middleware para validar Token JWT
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -75,10 +84,15 @@ const autenticarToken = (req, res, next) => {
 router.post('/', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { amount, type, description, categoryName, financialAccountId } = req.body;
+    const { amount, type, description, categoryName, financialAccountId, date } = req.body;
+    const fechaMovimiento = date === undefined ? undefined : parsearFechaMovimiento(date);
 
     if (!amount || !categoryName) {
       return res.status(400).json({ error: 'Monto y categoría son obligatorios.' });
+    }
+
+    if (date !== undefined && !fechaMovimiento) {
+      return res.status(400).json({ error: 'La fecha del movimiento no es válida.' });
     }
 
     if (financialAccountId !== undefined && typeof financialAccountId !== 'string') {
@@ -133,6 +147,7 @@ router.post('/', autenticarToken, async (req, res) => {
         amount: parseFloat(amount),
         type: tipoEnum,
         description: description || 'Sin detalle',
+        ...(fechaMovimiento && { date: fechaMovimiento }),
         accountId: relacionCuenta.accountId,
         financialAccountId: cuentaFinanciera.id,
         userId: userId,
@@ -296,15 +311,20 @@ router.get('/exportar.csv', autenticarToken, async (req, res) => {
 router.put('/:id', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { amount, type, description, categoryName, financialAccountId } = req.body;
+    const { amount, type, description, categoryName, financialAccountId, date } = req.body;
     const monto = (typeof amount === 'number' || (typeof amount === 'string' && amount.trim()))
       ? Number(amount)
       : Number.NaN;
     const tipoEnum = typeof type === 'string' ? type.toUpperCase() : '';
     const nombreCategoria = typeof categoryName === 'string' ? categoryName.trim() : '';
+    const fechaMovimiento = date === undefined ? undefined : parsearFechaMovimiento(date);
 
     if (!Number.isFinite(monto) || monto <= 0 || !['INGRESO', 'GASTO'].includes(tipoEnum) || !nombreCategoria) {
       return res.status(400).json({ error: 'Monto, tipo y categoría válidos son obligatorios.' });
+    }
+
+    if (date !== undefined && !fechaMovimiento) {
+      return res.status(400).json({ error: 'La fecha del movimiento no es válida.' });
     }
 
     if (description !== undefined && typeof description !== 'string') {
@@ -348,6 +368,7 @@ router.put('/:id', autenticarToken, async (req, res) => {
         type: tipoEnum,
         description: description?.trim() || 'Sin detalle',
         categoryId: categoria.id,
+        ...(fechaMovimiento && { date: fechaMovimiento }),
         ...(cuentaFinanciera && { financialAccountId: cuentaFinanciera.id })
       },
       include: { category: true, financialAccount: true }
