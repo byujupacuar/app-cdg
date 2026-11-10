@@ -432,7 +432,7 @@ button { color: inherit; }
 .budget-progress-foot { color: #9aa39d; font-size: 9px; margin-top: 6px; }
 .budget-form-panel form, .loan-form-panel form { display: flex; flex-direction: column; }
 .budget-form-panel label, .loan-form-panel label, .dialog-card label { color: #5f6d64; font-size: 11px; font-weight: 700; margin: 0 0 7px; }
-.budget-form-panel select, .budget-form-panel input, .loan-form-panel input, .dialog-card input {
+.budget-form-panel select, .budget-form-panel input, .loan-form-panel input, .loan-form-panel select, .dialog-card input, .dialog-card select {
   background: #fbfcfb;
   border: 1px solid #e6ebe7;
   border-radius: 9px;
@@ -444,7 +444,7 @@ button { color: inherit; }
   padding: 10px 12px;
   width: 100%;
 }
-.budget-form-panel select:focus, .budget-form-panel input:focus, .loan-form-panel input:focus, .dialog-card input:focus { border-color: #8ab59a; box-shadow: 0 0 0 3px rgba(69,139,94,.1); }
+.budget-form-panel select:focus, .budget-form-panel input:focus, .loan-form-panel input:focus, .loan-form-panel select:focus, .dialog-card input:focus, .dialog-card select:focus { border-color: #8ab59a; box-shadow: 0 0 0 3px rgba(69,139,94,.1); }
 .budget-amount-field { align-items: center; background: #fbfcfb; border: 1px solid #e6ebe7; border-radius: 9px; color: #839087; display: flex; gap: 8px; margin-bottom: 17px; padding: 0 12px; }
 .budget-amount-field:focus-within { border-color: #8ab59a; box-shadow: 0 0 0 3px rgba(69,139,94,.1); }
 .budget-amount-field > span { font-size: 14px; font-weight: 650; }

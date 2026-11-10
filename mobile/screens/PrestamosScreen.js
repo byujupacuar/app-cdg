@@ -12,7 +12,8 @@ import {
   eliminarPrestamo,
   abonarPrestamo,
   actualizarPagoPrestamo,
-  eliminarPagoPrestamo
+  eliminarPagoPrestamo,
+  obtenerCuentasFinancieras
 } from '../api';
 import { colors } from '../theme';
 
@@ -126,12 +127,36 @@ function CampoFecha({ value, onChange, placeholder, opcional = false, fieldStyle
   );
 }
 
+function SelectorCuenta({ cuentas, cuentaId, onSelect, etiqueta }) {
+  return (
+    <>
+      <Text style={styles.label}>{etiqueta}</Text>
+      {cuentas.length === 0 ? (
+        <Text style={styles.sinCuentas}>Añade una cuenta desde la sección Cuentas para continuar.</Text>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorCuentas}>
+          {cuentas.map((cuenta) => (
+            <TouchableOpacity
+              key={cuenta.id}
+              style={[styles.cuentaOpcion, cuentaId === cuenta.id && styles.cuentaOpcionActiva]}
+              onPress={() => onSelect(cuenta.id)}
+            >
+              <Text style={[styles.cuentaNombre, cuentaId === cuenta.id && styles.cuentaNombreActivo]}>{cuenta.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+    </>
+  );
+}
+
 export default function PrestamosScreen({ token }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tabTipo, setTabTipo] = useState('OTORGADO'); // 'OTORGADO' (Te deben) | 'RECIBIDO' (Debes)
   const [totales, setTotales] = useState({ totalPorCobrar: 0, totalPorPagar: 0 });
   const [prestamos, setPrestamos] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
 
   // Modal Crear Préstamo
   const [modalCrearVisible, setModalCrearVisible] = useState(false);
@@ -141,26 +166,34 @@ export default function PrestamosScreen({ token }) {
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [cuotasNuevas, setCuotasNuevas] = useState([]);
   const [tipoNuevo, setTipoNuevo] = useState('OTORGADO');
+  const [cuentaPrestamoId, setCuentaPrestamoId] = useState('');
 
   // Modal Abonar
   const [modalAbonarVisible, setModalAbonarVisible] = useState(false);
   const [prestamoSeleccionado, setPrestamoSeleccionado] = useState(null);
   const [montoAbono, setMontoAbono] = useState('');
   const [fechaPago, setFechaPago] = useState(fechaHoy);
+  const [cuentaPagoId, setCuentaPagoId] = useState('');
   const [pagoEditando, setPagoEditando] = useState(null);
   const [montoPagoEditado, setMontoPagoEditado] = useState('');
   const [fechaPagoEditada, setFechaPagoEditada] = useState(fechaHoy);
+  const [cuentaPagoEditadoId, setCuentaPagoEditadoId] = useState('');
   const [modalPlanVisible, setModalPlanVisible] = useState(false);
   const [prestamoPlan, setPrestamoPlan] = useState(null);
   const [fechaLimitePlan, setFechaLimitePlan] = useState('');
   const [cuotasPlan, setCuotasPlan] = useState([]);
 
   const cargarDatos = useCallback(async () => {
-    const res = await obtenerPrestamos(token);
+    const [res, resCuentas] = await Promise.all([
+      obtenerPrestamos(token),
+      obtenerCuentasFinancieras(token)
+    ]);
     if (res.exito) {
       setTotales(res.datos.totales);
       setPrestamos(res.datos.prestamos);
     }
+    if (resCuentas.exito) setCuentas(resCuentas.cuentas || []);
+    else Alert.alert('Error', resCuentas.mensaje || 'No se pudieron cargar las cuentas financieras.');
     setLoading(false);
     setRefreshing(false);
   }, [token]);
@@ -171,7 +204,11 @@ export default function PrestamosScreen({ token }) {
 
   const handleCrear = async () => {
     const monto = Number(montoTotal);
-    if (!contacto.trim() || !Number.isFinite(monto) || monto <= 0) {
+    if (!contacto.trim() || !Number.isFinite(monto) || monto <= 0 || !cuentaPrestamoId) {
+      if (!cuentaPrestamoId) {
+        Alert.alert('Selecciona una cuenta', 'Indica la cuenta donde sale o ingresa el dinero del préstamo.');
+        return;
+      }
       Alert.alert("Faltan datos", "Ingresa el nombre del contacto y el monto.");
       return;
     }
@@ -187,6 +224,7 @@ export default function PrestamosScreen({ token }) {
       contactName: contacto,
       totalAmount: monto,
       type: tipoNuevo,
+      financialAccountId: cuentaPrestamoId,
       loanDate: fechaPrestamo,
       dueDate: fechaVencimiento || null,
       installments: cuotasCompletas.map((cuota) => ({ dueDate: cuota.dueDate, amount: Number(cuota.amount) }))
@@ -204,6 +242,7 @@ export default function PrestamosScreen({ token }) {
       setFechaPrestamo(fechaHoy());
       setFechaVencimiento('');
       setCuotasNuevas([]);
+      setCuentaPrestamoId('');
       setModalCrearVisible(false);
       cargarDatos();
     } else {
@@ -242,12 +281,16 @@ export default function PrestamosScreen({ token }) {
   };
 
   const handleAbonar = async () => {
-    if (!montoAbono || parseFloat(montoAbono) <= 0) {
+    if (!montoAbono || parseFloat(montoAbono) <= 0 || !cuentaPagoId) {
+      if (!cuentaPagoId) {
+        Alert.alert('Selecciona una cuenta', 'Indica la cuenta donde ingresa o de donde sale el pago.');
+        return;
+      }
       Alert.alert("Monto inválido", "Ingresa un monto de abono mayor a 0.");
       return;
     }
 
-    const res = await abonarPrestamo(prestamoSeleccionado.id, parseFloat(montoAbono), token, fechaPago);
+    const res = await abonarPrestamo(prestamoSeleccionado.id, parseFloat(montoAbono), token, fechaPago, cuentaPagoId);
     if (res.exito) {
       Alert.alert(
         '¡Abono registrado!',
@@ -257,6 +300,7 @@ export default function PrestamosScreen({ token }) {
       );
       setMontoAbono('');
       setFechaPago(fechaHoy());
+      setCuentaPagoId('');
       setModalAbonarVisible(false);
       setPrestamoSeleccionado(null);
       cargarDatos();
@@ -269,15 +313,20 @@ export default function PrestamosScreen({ token }) {
     setPagoEditando(pago);
     setMontoPagoEditado(String(pago.amount));
     setFechaPagoEditada(String(pago.date).slice(0, 10));
+    setCuentaPagoEditadoId(pago.financialAccountId || '');
   };
 
   const handleActualizarPago = async () => {
     const amount = Number(montoPagoEditado);
-    if (!Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada) {
+    if (!Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada || !cuentaPagoEditadoId) {
+      if (!cuentaPagoEditadoId) {
+        Alert.alert('Selecciona una cuenta', 'Indica la cuenta donde se registró el pago.');
+        return;
+      }
       Alert.alert('Datos inválidos', 'Ingresa un monto mayor que cero y una fecha válida.');
       return;
     }
-    const res = await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada }, token);
+    const res = await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada, financialAccountId: cuentaPagoEditadoId }, token);
     if (res.exito) {
       setPagoEditando(null);
       cargarDatos();
@@ -402,6 +451,7 @@ export default function PrestamosScreen({ token }) {
                       Monto Total: ${item.totalAmount.toFixed(2)}
                     </Text>
                     <Text style={styles.subtext}>Fecha del préstamo: {mostrarFecha(item.loanDate || item.createdAt)}</Text>
+                    {item.financialAccount?.name && <Text style={styles.subtext}>Cuenta: {item.financialAccount.name}</Text>}
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: estaCompletado ? colors.green700 : colors.amber }]}>
                     <Text style={styles.statusText}>{estaCompletado ? 'LIQUIDADO' : 'PENDIENTE'}</Text>
@@ -457,6 +507,7 @@ export default function PrestamosScreen({ token }) {
                         setPrestamoSeleccionado(item);
                         setModalAbonarVisible(true);
                         setFechaPago(fechaHoy());
+                        setCuentaPagoId('');
                       }}
                     >
                       <Text style={styles.btnAbonarTxt}>+ Abonar</Text>
@@ -481,6 +532,7 @@ export default function PrestamosScreen({ token }) {
                         <Text style={styles.pagoFecha}>{mostrarFecha(pago.date)}</Text>
                         <Text style={styles.pagoMonto}>${Number(pago.amount).toFixed(2)}</Text>
                       </View>
+                      {pago.financialAccount?.name && <Text style={styles.pagoCuenta}>Cuenta: {pago.financialAccount.name}</Text>}
                       <View style={styles.pagoAcciones}>
                         <TouchableOpacity onPress={() => abrirEditorPago(pago)}>
                           <Text style={styles.pagoAccion}>Editar</Text>
@@ -548,6 +600,13 @@ export default function PrestamosScreen({ token }) {
               keyboardType="numeric" 
               value={montoTotal} 
               onChangeText={setMontoTotal} 
+            />
+
+            <SelectorCuenta
+              cuentas={cuentas}
+              cuentaId={cuentaPrestamoId}
+              onSelect={setCuentaPrestamoId}
+              etiqueta={tipoNuevo === 'OTORGADO' ? 'Cuenta de donde sale el préstamo:' : 'Cuenta donde ingresa el préstamo:'}
             />
 
             <Text style={styles.label}>Fecha del préstamo:</Text>
@@ -691,6 +750,13 @@ export default function PrestamosScreen({ token }) {
               placeholder="Selecciona la fecha"
             />
 
+            <SelectorCuenta
+              cuentas={cuentas}
+              cuentaId={cuentaPagoId}
+              onSelect={setCuentaPagoId}
+              etiqueta={prestamoSeleccionado?.type === 'OTORGADO' ? 'Cuenta donde ingresa el pago:' : 'Cuenta de donde sale el pago:'}
+            />
+
             <TouchableOpacity style={styles.btnGuardar} onPress={handleAbonar}>
               <Text style={styles.btnTexto}>Registrar Abono</Text>
             </TouchableOpacity>
@@ -729,6 +795,12 @@ export default function PrestamosScreen({ token }) {
               value={fechaPagoEditada}
               onChange={setFechaPagoEditada}
               placeholder="Selecciona la fecha"
+            />
+            <SelectorCuenta
+              cuentas={cuentas}
+              cuentaId={cuentaPagoEditadoId}
+              onSelect={setCuentaPagoEditadoId}
+              etiqueta="Cuenta donde se registró el pago:"
             />
             <TouchableOpacity style={styles.btnGuardar} onPress={handleActualizarPago}>
               <Text style={styles.btnTexto}>Guardar cambios</Text>
@@ -796,6 +868,12 @@ const styles = StyleSheet.create({
   datePickerCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 16 },
   datePickerActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   datePickerConfirm: { backgroundColor: colors.green800, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 9, marginLeft: 8 },
+  selectorCuentas: { marginBottom: 14, maxHeight: 44 },
+  cuentaOpcion: { backgroundColor: '#f1f4f1', borderColor: colors.line, borderWidth: 1, borderRadius: 9, justifyContent: 'center', marginRight: 8, paddingHorizontal: 13, paddingVertical: 9 },
+  cuentaOpcionActiva: { backgroundColor: colors.green800, borderColor: colors.green800 },
+  cuentaNombre: { color: colors.ink, fontSize: 12, fontWeight: '600' },
+  cuentaNombreActivo: { color: colors.white },
+  sinCuentas: { color: colors.red, fontSize: 11, marginBottom: 14 },
   quitarCuota: { color: colors.red, fontSize: 23, fontWeight: '700', paddingHorizontal: 5, paddingBottom: 10 },
   historialPagos: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: 12, paddingTop: 10 },
   historialTitulo: { color: colors.green950, fontSize: 11, fontWeight: '700', marginBottom: 6 },
@@ -806,6 +884,7 @@ const styles = StyleSheet.create({
   pagoEliminar: { color: colors.red },
   pagoFecha: { color: colors.muted, fontSize: 11 },
   pagoMonto: { color: colors.ink, fontSize: 11, fontWeight: '700' },
+  pagoCuenta: { color: colors.muted, fontSize: 10, marginTop: 2 },
   pagoAnterior: { color: colors.amber, fontSize: 10, marginBottom: 5 },
   sinPagos: { color: colors.muted, fontSize: 10 },
   vacioCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, padding: 22, borderRadius: 13, alignItems: 'center', marginTop: 10 },

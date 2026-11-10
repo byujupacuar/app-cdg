@@ -69,6 +69,8 @@ model FinancialAccount {
   linkedFinancialAccountId String?
   linkedFinancialAccount   FinancialAccount?          @relation("LinkedDebitCard", fields: [linkedFinancialAccountId], references: [id], onDelete: Restrict)
   linkedDebitCards         FinancialAccount[]         @relation("LinkedDebitCard")
+  loans                    Loan[]
+  loanPayments             LoanPayment[]
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
 
@@ -150,33 +152,40 @@ model Budget {
 }
 
 model Loan {
-  id           String            @id @default(uuid())
-  contactName  String
-  totalAmount  Float
-  dueAmount    Float
-  type         LoanType
-  loanDate     DateTime          @default(now())
-  dueDate      DateTime?
-  accountId    String
-  userId       String
-  account      Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user         User              @relation(fields: [userId], references: [id])
-  transactions Transaction[]
-  payments     LoanPayment[]
-  installments LoanInstallment[]
-  createdAt    DateTime          @default(now())
+  id                 String            @id @default(uuid())
+  contactName        String
+  totalAmount        Float
+  dueAmount          Float
+  type               LoanType
+  loanDate           DateTime          @default(now())
+  dueDate            DateTime?
+  accountId          String
+  financialAccountId String?
+  userId             String
+  account            Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  financialAccount   FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  user               User              @relation(fields: [userId], references: [id])
+  transactions       Transaction[]
+  payments           LoanPayment[]
+  installments       LoanInstallment[]
+  createdAt          DateTime          @default(now())
+
+  @@index([financialAccountId])
 }
 
 model LoanPayment {
-  id        String   @id @default(uuid())
-  amount    Float
-  date      DateTime @default(now())
-  loanId    String
-  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  transaction Transaction?
-  createdAt DateTime @default(now())
+  id                 String            @id @default(uuid())
+  amount             Float
+  date               DateTime          @default(now())
+  loanId             String
+  financialAccountId String?
+  loan               Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  financialAccount   FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  transaction        Transaction?
+  createdAt          DateTime          @default(now())
 
   @@index([loanId, date])
+  @@index([financialAccountId])
 }
 
 model LoanInstallment {

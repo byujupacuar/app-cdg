@@ -156,8 +156,8 @@ export const actualizarPlanPrestamo = async (id, plan) => {
   return res.data;
 };
 
-export const abonarPrestamo = async (id, abonoAmount, paymentDate) => {
-  const res = await api.patch(`/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate });
+export const abonarPrestamo = async (id, abonoAmount, paymentDate, financialAccountId) => {
+  const res = await api.patch(`/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate, financialAccountId });
   return res.data;
 };
 

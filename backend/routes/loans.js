@@ -128,7 +128,11 @@ router.get('/', autenticarToken, async (req, res) => {
       where: { accountId },
       include: {
         user: true,
-        payments: { orderBy: [{ date: 'desc' }, { createdAt: 'desc' }] },
+        financialAccount: true,
+        payments: {
+          include: { financialAccount: true },
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+        },
         installments: { orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }] }
       },
       orderBy: { createdAt: 'desc' }
@@ -161,7 +165,7 @@ router.get('/', autenticarToken, async (req, res) => {
 router.post('/', autenticarToken, async (req, res) => {
   try {
     const userId = req.usuario.userId;
-    const { contactName, totalAmount, type, dueDate, loanDate, installments } = req.body;
+    const { contactName, totalAmount, type, dueDate, loanDate, installments, financialAccountId } = req.body;
     const monto = typeof totalAmount === 'number' || (typeof totalAmount === 'string' && totalAmount.trim())
       ? Number(totalAmount)
       : Number.NaN;
@@ -169,7 +173,7 @@ router.post('/', autenticarToken, async (req, res) => {
     const tieneFechaVencimiento = dueDate !== undefined && dueDate !== null && dueDate !== '';
     const fechaVencimiento = tieneFechaVencimiento ? parseDate(dueDate) : null;
     const cuotas = parseInstallments(installments, monto);
-    if (typeof contactName !== 'string' || !contactName.trim() || !Number.isFinite(monto) || monto <= 0 || typeof type !== 'string' || !['OTORGADO', 'RECIBIDO'].includes(type.toUpperCase()) || !fechaPrestamo || (tieneFechaVencimiento && !fechaVencimiento) || cuotas === null) {
+    if (typeof contactName !== 'string' || !contactName.trim() || !Number.isFinite(monto) || monto <= 0 || typeof type !== 'string' || !['OTORGADO', 'RECIBIDO'].includes(type.toUpperCase()) || typeof financialAccountId !== 'string' || !financialAccountId.trim() || !fechaPrestamo || (tieneFechaVencimiento && !fechaVencimiento) || cuotas === null) {
       return res.status(400).json({ error: 'Verifica el nombre, monto, tipo y fechas; las cuotas deben sumar el monto total.' });
     }
 
@@ -179,10 +183,9 @@ router.post('/', autenticarToken, async (req, res) => {
     const tipoEnum = type.toUpperCase();
 
     const cuentaFinanciera = await prisma.financialAccount.findFirst({
-      where: { householdAccountId: relacionCuenta.accountId },
-      orderBy: { createdAt: 'asc' }
+      where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
     });
-    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el movimiento del préstamo.' });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Selecciona una cuenta financiera válida para registrar el préstamo.' });
 
     const nuevoPrestamo = await prisma.$transaction(async (tx) => {
       const prestamo = await tx.loan.create({
@@ -194,6 +197,7 @@ router.post('/', autenticarToken, async (req, res) => {
           loanDate: fechaPrestamo,
           dueDate: fechaVencimiento,
           accountId: relacionCuenta.accountId,
+          financialAccountId: cuentaFinanciera.id,
           userId,
           ...(cuotas.length ? { installments: { create: cuotas } } : {})
         }
@@ -293,7 +297,7 @@ router.put('/:id/plan', autenticarToken, async (req, res) => {
 router.patch('/:id/abonar', autenticarToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { abonoAmount, paymentDate } = req.body;
+    const { abonoAmount, paymentDate, financialAccountId } = req.body;
     const montoAbono = typeof abonoAmount === 'number' || (typeof abonoAmount === 'string' && abonoAmount.trim())
       ? Number(abonoAmount)
       : Number.NaN;
@@ -302,16 +306,18 @@ router.patch('/:id/abonar', autenticarToken, async (req, res) => {
     if (!Number.isFinite(montoAbono) || montoAbono <= 0 || !fechaPago) {
       return res.status(400).json({ error: 'El monto del abono y la fecha de pago deben ser válidos.' });
     }
+    if (typeof financialAccountId !== 'string' || !financialAccountId.trim()) {
+      return res.status(400).json({ error: 'Selecciona la cuenta financiera donde se registra el pago.' });
+    }
 
     const relacionCuenta = await prisma.accountUser.findFirst({
       where: { userId: req.usuario.userId }
     });
     if (!relacionCuenta) return res.status(404).json({ error: 'Cuenta no encontrada.' });
     const cuentaFinanciera = await prisma.financialAccount.findFirst({
-      where: { householdAccountId: relacionCuenta.accountId },
-      orderBy: { createdAt: 'asc' }
+      where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
     });
-    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el pago.' });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Selecciona una cuenta financiera válida para registrar el pago.' });
 
     const prestamo = await prisma.loan.findFirst({
       where: { id, accountId: relacionCuenta.accountId }
@@ -333,7 +339,7 @@ router.patch('/:id/abonar', autenticarToken, async (req, res) => {
       }
 
       const pago = await tx.loanPayment.create({
-        data: { loanId: id, amount: montoAbono, date: fechaPago }
+        data: { loanId: id, amount: montoAbono, date: fechaPago, financialAccountId: cuentaFinanciera.id }
       });
 
       const prestamoActualizado = await tx.loan.findUnique({ where: { id } });
@@ -380,8 +386,12 @@ router.put('/pagos/:paymentId', autenticarToken, async (req, res) => {
       ? Number(req.body.amount)
       : Number.NaN;
     const date = parseDate(req.body.date);
+    const { financialAccountId } = req.body;
     if (!Number.isFinite(amount) || amount <= 0 || !date) {
       return res.status(400).json({ error: 'El monto y la fecha del pago deben ser válidos.' });
+    }
+    if (typeof financialAccountId !== 'string' || !financialAccountId.trim()) {
+      return res.status(400).json({ error: 'Selecciona la cuenta financiera donde se registra el pago.' });
     }
 
     const relacionCuenta = await prisma.accountUser.findFirst({
@@ -400,10 +410,9 @@ router.put('/pagos/:paymentId', autenticarToken, async (req, res) => {
     }
 
     const cuentaFinanciera = await prisma.financialAccount.findFirst({
-      where: { householdAccountId: relacionCuenta.accountId },
-      orderBy: { createdAt: 'asc' }
+      where: { id: financialAccountId, householdAccountId: relacionCuenta.accountId }
     });
-    if (!cuentaFinanciera) return res.status(400).json({ error: 'Crea una cuenta financiera para registrar el pago.' });
+    if (!cuentaFinanciera) return res.status(400).json({ error: 'Selecciona una cuenta financiera válida para registrar el pago.' });
 
     const resultado = await prisma.$transaction(async (tx) => {
       await tx.loan.update({
@@ -412,13 +421,13 @@ router.put('/pagos/:paymentId', autenticarToken, async (req, res) => {
       });
       const pago = await tx.loanPayment.update({
         where: { id: paymentId },
-        data: { amount, date }
+        data: { amount, date, financialAccountId: cuentaFinanciera.id }
       });
       const movimientoTipo = payment.loan.type === 'OTORGADO' ? 'INGRESO' : 'GASTO';
       if (payment.transaction) {
         await tx.transaction.update({
           where: { id: payment.transaction.id },
-          data: { amount, date }
+          data: { amount, date, financialAccountId: cuentaFinanciera.id }
         });
       } else {
         await registrarMovimientoPrestamo(tx, {

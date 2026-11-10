@@ -584,9 +584,9 @@ export const eliminarPrestamo = async (id, token) => {
   }
 };
 
-export const abonarPrestamo = async (id, abonoAmount, token, paymentDate) => {
+export const abonarPrestamo = async (id, abonoAmount, token, paymentDate, financialAccountId) => {
   try {
-    const respuesta = await axios.patch(`${API_URL}/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate }, {
+    const respuesta = await axios.patch(`${API_URL}/api/prestamos/${id}/abonar`, { abonoAmount, paymentDate, financialAccountId }, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
@@ -595,7 +595,7 @@ export const abonarPrestamo = async (id, abonoAmount, token, paymentDate) => {
     return { exito: true, prestamo: respuesta.data.prestamo };
   } catch (error) {
     console.error("Error al abonar préstamo:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudo registrar el abono." };
+    return { exito: false, mensaje: error.response?.data?.error || "No se pudo registrar el abono." };
   }
 };
 

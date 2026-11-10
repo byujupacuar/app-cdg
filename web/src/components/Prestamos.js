@@ -6,7 +6,8 @@ import {
   crearPrestamo,
   eliminarPrestamo,
   eliminarPagoPrestamo,
-  obtenerPrestamos
+  obtenerPrestamos,
+  obtenerCuentasFinancieras
 } from '../services/api';
 
 const currency = (amount) => new Intl.NumberFormat('es', {
@@ -27,6 +28,7 @@ const formatDate = (value) => {
 
 export default function Prestamos() {
   const [prestamos, setPrestamos] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
   const [totales, setTotales] = useState({ totalPorCobrar: 0, totalPorPagar: 0 });
   const [tipoLista, setTipoLista] = useState('OTORGADO');
   const [contactName, setContactName] = useState('');
@@ -35,12 +37,15 @@ export default function Prestamos() {
   const [dueDate, setDueDate] = useState('');
   const [newInstallments, setNewInstallments] = useState([]);
   const [tipoNuevo, setTipoNuevo] = useState('OTORGADO');
+  const [financialAccountId, setFinancialAccountId] = useState('');
   const [abono, setAbono] = useState('');
   const [paymentDate, setPaymentDate] = useState(todayIsoDate);
+  const [paymentFinancialAccountId, setPaymentFinancialAccountId] = useState('');
   const [prestamoAbono, setPrestamoAbono] = useState(null);
   const [pagoEditando, setPagoEditando] = useState(null);
   const [montoPagoEditado, setMontoPagoEditado] = useState('');
   const [fechaPagoEditada, setFechaPagoEditada] = useState(todayIsoDate);
+  const [editPaymentFinancialAccountId, setEditPaymentFinancialAccountId] = useState('');
   const [prestamoPlan, setPrestamoPlan] = useState(null);
   const [planDueDate, setPlanDueDate] = useState('');
   const [planInstallments, setPlanInstallments] = useState([]);
@@ -67,13 +72,25 @@ export default function Prestamos() {
     loadLoans();
   }, [loadLoans]);
 
+  useEffect(() => {
+    let active = true;
+    obtenerCuentasFinancieras()
+      .then((response) => {
+        if (active) setCuentas(response.cuentas || []);
+      })
+      .catch((err) => {
+        if (active) setError(err.response?.data?.error || 'No se pudieron cargar las cuentas financieras.');
+      });
+    return () => { active = false; };
+  }, []);
+
   const submitLoan = async (event) => {
     event.preventDefault();
     setError('');
     setMessage('');
     const amount = Number(totalAmount);
-    if (!contactName.trim() || !Number.isFinite(amount) || amount <= 0) {
-      setError('Escribe un contacto y un monto mayor que cero.');
+    if (!contactName.trim() || !Number.isFinite(amount) || amount <= 0 || !financialAccountId) {
+      setError(!financialAccountId ? 'Selecciona la cuenta financiera del préstamo.' : 'Escribe un contacto y un monto mayor que cero.');
       return;
     }
     const installments = newInstallments.filter((installment) => installment.dueDate || installment.amount);
@@ -89,6 +106,7 @@ export default function Prestamos() {
         contactName: contactName.trim(),
         totalAmount: amount,
         type: tipoNuevo,
+        financialAccountId,
         loanDate,
         dueDate: dueDate || null,
         installments: installments.map((installment) => ({ dueDate: installment.dueDate, amount: Number(installment.amount) }))
@@ -98,6 +116,7 @@ export default function Prestamos() {
       setLoanDate(todayIsoDate());
       setDueDate('');
       setNewInstallments([]);
+      setFinancialAccountId('');
       setMessage(tipoNuevo === 'OTORGADO'
         ? 'Préstamo registrado como gasto; queda pendiente de cobro.'
         : 'Préstamo recibido registrado como ingreso; queda pendiente de pago.');
@@ -148,17 +167,18 @@ export default function Prestamos() {
     setError('');
     setMessage('');
     const amount = Number(abono);
-    if (!prestamoAbono || !Number.isFinite(amount) || amount <= 0) {
-      setError('Escribe un abono mayor que cero.');
+    if (!prestamoAbono || !Number.isFinite(amount) || amount <= 0 || !paymentFinancialAccountId) {
+      setError(!paymentFinancialAccountId ? 'Selecciona la cuenta donde se registra el pago.' : 'Escribe un abono mayor que cero.');
       return;
     }
 
     setSaving(true);
     try {
-      await abonarPrestamo(prestamoAbono.id, amount, paymentDate);
+      await abonarPrestamo(prestamoAbono.id, amount, paymentDate, paymentFinancialAccountId);
       setPrestamoAbono(null);
       setAbono('');
       setPaymentDate(todayIsoDate());
+      setPaymentFinancialAccountId('');
       setMessage(prestamoAbono.type === 'OTORGADO'
         ? 'Pago registrado como ingreso; el saldo pendiente se actualizó.'
         : 'Pago registrado como gasto; el saldo pendiente se actualizó.');
@@ -174,6 +194,7 @@ export default function Prestamos() {
     setPagoEditando(payment);
     setMontoPagoEditado(String(payment.amount));
     setFechaPagoEditada(String(payment.date).slice(0, 10));
+    setEditPaymentFinancialAccountId(payment.financialAccountId || '');
     setError('');
   };
 
@@ -182,14 +203,14 @@ export default function Prestamos() {
     setError('');
     setMessage('');
     const amount = Number(montoPagoEditado);
-    if (!pagoEditando || !Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada) {
-      setError('Escribe un monto mayor que cero y una fecha válida.');
+    if (!pagoEditando || !Number.isFinite(amount) || amount <= 0 || !fechaPagoEditada || !editPaymentFinancialAccountId) {
+      setError(!editPaymentFinancialAccountId ? 'Selecciona la cuenta donde se registra el pago.' : 'Escribe un monto mayor que cero y una fecha válida.');
       return;
     }
 
     setSaving(true);
     try {
-      await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada });
+      await actualizarPagoPrestamo(pagoEditando.id, { amount, date: fechaPagoEditada, financialAccountId: editPaymentFinancialAccountId });
       setPagoEditando(null);
       setMessage('Pago actualizado.');
       await loadLoans();
@@ -312,6 +333,7 @@ export default function Prestamos() {
                         <strong>{loan.contactName}</strong>
                         <small>{loan.type === 'OTORGADO' ? 'Le prestaste' : 'Te prestaron'} {currency(total)}</small>
                         <small>Fecha del préstamo: {formatDate(loan.loanDate || loan.createdAt)}</small>
+                        {loan.financialAccount?.name && <small>Cuenta: {loan.financialAccount.name}</small>}
                       </div>
                       <span className={`loan-state ${settled ? 'loan-settled' : 'loan-open'}`}>
                         {settled ? 'Liquidado' : 'Pendiente'}
@@ -344,7 +366,7 @@ export default function Prestamos() {
                     <div className="loan-item-bottom">
                       <span>Saldo <strong>{currency(due)}</strong></span>
                       {!settled && (
-                        <button type="button" className="text-button" onClick={() => { setPrestamoAbono(loan); setAbono(''); setPaymentDate(todayIsoDate()); }}>
+                        <button type="button" className="text-button" onClick={() => { setPrestamoAbono(loan); setAbono(''); setPaymentDate(todayIsoDate()); setPaymentFinancialAccountId(''); }}>
                           Registrar abono <span aria-hidden="true">→</span>
                         </button>
                       )}
@@ -365,6 +387,7 @@ export default function Prestamos() {
                             <span>{formatDate(payment.date)}</span>
                             <strong>{currency(payment.amount)}</strong>
                           </div>
+                          {payment.financialAccount?.name && <small className="loan-payment-account">Cuenta: {payment.financialAccount.name}</small>}
                           <div className="loan-payment-actions">
                             <button type="button" className="text-button" onClick={() => openPaymentEditor(payment)}>Editar</button>
                             <button type="button" className="text-button" onClick={() => deletePayment(payment)} disabled={saving}>Eliminar</button>
@@ -400,6 +423,11 @@ export default function Prestamos() {
               <span>$</span>
               <input id="loan-total" type="number" min="0.01" step="0.01" value={totalAmount} onChange={(event) => setTotalAmount(event.target.value)} placeholder="0.00" required />
             </div>
+            <label htmlFor="loan-account">{tipoNuevo === 'OTORGADO' ? 'Cuenta de donde sale el préstamo' : 'Cuenta donde ingresa el préstamo'}</label>
+            <select id="loan-account" className="loan-account-select" value={financialAccountId} onChange={(event) => setFinancialAccountId(event.target.value)} required>
+              <option value="">Selecciona una cuenta</option>
+              {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+            </select>
             <label htmlFor="loan-date">Fecha del préstamo</label>
             <input id="loan-date" type="date" value={loanDate} onChange={(event) => setLoanDate(event.target.value)} required />
             <label htmlFor="loan-due-date">Fecha límite general (opcional)</label>
@@ -465,6 +493,11 @@ export default function Prestamos() {
               </div>
               <label htmlFor="loan-payment-date">Fecha del pago</label>
               <input id="loan-payment-date" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+              <label htmlFor="loan-payment-account">{prestamoAbono.type === 'OTORGADO' ? 'Cuenta donde ingresa el pago' : 'Cuenta de donde sale el pago'}</label>
+              <select id="loan-payment-account" className="loan-account-select" value={paymentFinancialAccountId} onChange={(event) => setPaymentFinancialAccountId(event.target.value)} required>
+                <option value="">Selecciona una cuenta</option>
+                {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+              </select>
               <button className="button-primary form-submit" type="submit" disabled={saving}>
                 {saving ? 'Registrando...' : 'Registrar abono'}
               </button>
@@ -489,6 +522,11 @@ export default function Prestamos() {
               </div>
               <label htmlFor="edit-loan-payment-date">Fecha del pago</label>
               <input id="edit-loan-payment-date" type="date" value={fechaPagoEditada} onChange={(event) => setFechaPagoEditada(event.target.value)} required />
+              <label htmlFor="edit-loan-payment-account">Cuenta donde se registró el pago</label>
+              <select id="edit-loan-payment-account" className="loan-account-select" value={editPaymentFinancialAccountId} onChange={(event) => setEditPaymentFinancialAccountId(event.target.value)} required>
+                <option value="">Selecciona una cuenta</option>
+                {cuentas.map((cuenta) => <option key={cuenta.id} value={cuenta.id}>{cuenta.name}</option>)}
+              </select>
               <button className="button-primary form-submit" type="submit" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar cambios'}
               </button>

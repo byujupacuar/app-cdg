@@ -191,15 +191,17 @@ router.delete('/financieras/:id', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró la cuenta financiera solicitada.' });
     }
 
-    const [movimientos, transferenciasSalida, transferenciasEntrada, debitosVinculados] = await Promise.all([
+    const [movimientos, transferenciasSalida, transferenciasEntrada, debitosVinculados, prestamos, pagosPrestamo] = await Promise.all([
       prisma.transaction.count({ where: { financialAccountId: cuenta.id } }),
       prisma.financialAccountTransfer.count({ where: { fromFinancialAccountId: cuenta.id } }),
       prisma.financialAccountTransfer.count({ where: { toFinancialAccountId: cuenta.id } }),
-      prisma.financialAccount.count({ where: { linkedFinancialAccountId: cuenta.id } })
+      prisma.financialAccount.count({ where: { linkedFinancialAccountId: cuenta.id } }),
+      prisma.loan.count({ where: { financialAccountId: cuenta.id } }),
+      prisma.loanPayment.count({ where: { financialAccountId: cuenta.id } })
     ]);
-    if (movimientos || transferenciasSalida || transferenciasEntrada || debitosVinculados) {
+    if (movimientos || transferenciasSalida || transferenciasEntrada || debitosVinculados || prestamos || pagosPrestamo) {
       return res.status(409).json({
-        error: 'No se puede eliminar la cuenta porque tiene movimientos, transferencias o tarjetas vinculadas.'
+        error: 'No se puede eliminar la cuenta porque tiene movimientos, préstamos, pagos, transferencias o tarjetas vinculadas.'
       });
     }
 
@@ -208,7 +210,7 @@ router.delete('/financieras/:id', autenticarToken, async (req, res) => {
   } catch (error) {
     if (error.code === 'P2003' || error.code === 'P2025') {
       return res.status(409).json({
-        error: 'No se puede eliminar la cuenta porque tiene movimientos, transferencias o tarjetas vinculadas.'
+        error: 'No se puede eliminar la cuenta porque tiene movimientos, préstamos, pagos, transferencias o tarjetas vinculadas.'
       });
     }
     console.error('Error al eliminar cuenta financiera:', error);
