@@ -977,6 +977,20 @@ export const obtenerMiCuenta = async (token) => {
   }
 };
 
+export const actualizarMonedaCuenta = async (currency, token) => {
+  try {
+    const respuesta = await axios.put(`${API_URL}/api/cuentas/mi-cuenta/moneda`, { currency }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const cuenta = await cacheGet('household');
+    if (cuenta) await cacheSet('household', { ...cuenta, currency: respuesta.data.currency });
+    return { exito: true, currency: respuesta.data.currency };
+  } catch (error) {
+    console.error('Error al actualizar la moneda:', error.response?.data || error.message);
+    return { exito: false, mensaje: error.response?.data?.error || 'No se pudo actualizar la moneda.' };
+  }
+};
+
 export const obtenerCuentasFinancieras = async (token) => {
   try {
     const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras`, {

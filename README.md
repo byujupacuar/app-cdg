@@ -40,6 +40,11 @@ gastos por cuenta y período, consultar sus movimientos y exportarlos a CSV.
 En la web, el menú con tu nombre en la parte superior muestra los miembros de la
 cuenta, permite invitar a una pareja registrada y cerrar sesión.
 
+La moneda de presentación se puede cambiar desde el menú de usuario en la web o
+desde **Más de Nivia → Mi perfil** en móvil. Es una preferencia compartida por
+la cuenta; cambiarla actualiza el formato de los importes, pero no convierte los
+valores ni modifica los saldos guardados.
+
 Para habilitar el inicio de sesión real con Google, configura el consentimiento
 OAuth en Google Cloud y crea Client IDs para Web, Android e iOS. En Render,
 define `GOOGLE_CLIENT_IDS` con esos IDs separados por comas; son identificadores

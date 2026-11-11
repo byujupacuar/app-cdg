@@ -1,12 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { obtenerDashboard } from '../services/api';
+import { formatCurrency } from '../currency';
 
-const currency = (value) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(value) || 0);
-
-export default function Dashboard({ refreshKey, onNavigate, userName }) {
+export default function Dashboard({ refreshKey, onNavigate, userName, currencyCode = 'USD' }) {
+  const currency = (value) => formatCurrency(value, currencyCode);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');

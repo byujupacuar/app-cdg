@@ -16,6 +16,7 @@ import {
   obtenerCuentasFinancieras
 } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
 const fechaHoy = () => {
   const hoy = new Date();
@@ -150,7 +151,8 @@ function SelectorCuenta({ cuentas, cuentaId, onSelect, etiqueta }) {
   );
 }
 
-export default function PrestamosScreen({ token }) {
+export default function PrestamosScreen({ token, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tabTipo, setTabTipo] = useState('OTORGADO'); // 'OTORGADO' (Te deben) | 'RECIBIDO' (Debes)
@@ -395,13 +397,13 @@ export default function PrestamosScreen({ token }) {
           <View style={[styles.resumenCard, { backgroundColor: colors.green100 }]}>
             <Text style={styles.resumenLabel}>A Favor (Te deben)</Text>
             <Text style={[styles.resumenMonto, { color: colors.green700 }]}>
-              ${totales.totalPorCobrar.toFixed(2)}
+              {moneda(totales.totalPorCobrar)}
             </Text>
           </View>
           <View style={[styles.resumenCard, { backgroundColor: colors.redSoft }]}>
             <Text style={styles.resumenLabel}>En Contra (Debes)</Text>
             <Text style={[styles.resumenMonto, { color: colors.red }]}>
-              ${totales.totalPorPagar.toFixed(2)}
+              {moneda(totales.totalPorPagar)}
             </Text>
           </View>
         </View>
@@ -448,7 +450,7 @@ export default function PrestamosScreen({ token }) {
                   <View>
                     <Text style={styles.contactName}>{item.contactName}</Text>
                     <Text style={styles.subtext}>
-                      Monto Total: ${item.totalAmount.toFixed(2)}
+                      Monto Total: {moneda(item.totalAmount)}
                     </Text>
                     <Text style={styles.subtext}>Fecha del préstamo: {mostrarFecha(item.loanDate || item.createdAt)}</Text>
                     {item.financialAccount?.name && <Text style={styles.subtext}>Cuenta: {item.financialAccount.name}</Text>}
@@ -480,8 +482,8 @@ export default function PrestamosScreen({ token }) {
                         <Text style={[styles.pagoFecha, vencida && styles.textoVencido]}>{mostrarFecha(cuota.dueDate)} · {estadoCuota}</Text>
                         <Text style={styles.pagoMonto}>
                           {montoPagado > 0
-                            ? `$${montoPagado.toFixed(2)} de $${Number(cuota.amount).toFixed(2)}`
-                            : `$${Number(cuota.amount).toFixed(2)}`}
+                            ? `${moneda(montoPagado)} de ${moneda(cuota.amount)}`
+                            : moneda(cuota.amount)}
                         </Text>
                       </View>
                     );
@@ -498,7 +500,7 @@ export default function PrestamosScreen({ token }) {
 
                 <View style={styles.loanFooter}>
                   <Text style={styles.dueText}>
-                    Saldo Restante: <Text style={styles.dueHighlight}>${item.dueAmount.toFixed(2)}</Text>
+                    Saldo Restante: <Text style={styles.dueHighlight}>{moneda(item.dueAmount)}</Text>
                   </Text>
                   {!estaCompletado && (
                     <TouchableOpacity 
@@ -521,7 +523,7 @@ export default function PrestamosScreen({ token }) {
                   <Text style={styles.historialTitulo}>Historial de pagos</Text>
                   {pagosHistoricos > 0.005 && (
                     <Text style={styles.pagoAnterior}>
-                      Pagos anteriores sin fecha registrada: ${pagosHistoricos.toFixed(2)}
+                      Pagos anteriores sin fecha registrada: {moneda(pagosHistoricos)}
                     </Text>
                   )}
                   {pagos.length === 0 && pagosHistoricos <= 0.005 ? (
@@ -530,7 +532,7 @@ export default function PrestamosScreen({ token }) {
                     <View key={pago.id} style={styles.pagoItem}>
                       <View style={styles.pagoFila}>
                         <Text style={styles.pagoFecha}>{mostrarFecha(pago.date)}</Text>
-                        <Text style={styles.pagoMonto}>${Number(pago.amount).toFixed(2)}</Text>
+                        <Text style={styles.pagoMonto}>{moneda(pago.amount)}</Text>
                       </View>
                       {pago.financialAccount?.name && <Text style={styles.pagoCuenta}>Cuenta: {pago.financialAccount.name}</Text>}
                       <View style={styles.pagoAcciones}>
@@ -593,7 +595,7 @@ export default function PrestamosScreen({ token }) {
               onChangeText={setContacto} 
             />
 
-            <Text style={styles.label}>Monto Total ($):</Text>
+            <Text style={styles.label}>Monto Total ({currencyCode}):</Text>
             <TextInput 
               style={styles.input} 
               placeholder="0.00" 
@@ -674,7 +676,7 @@ export default function PrestamosScreen({ token }) {
           >
             <View style={styles.modalContent}>
               <Text style={styles.modalTitulo}>Plan de pagos · {prestamoPlan?.contactName}</Text>
-              <Text style={styles.subtextModal}>Las cuotas deben sumar ${Number(prestamoPlan?.totalAmount || 0).toFixed(2)}.</Text>
+              <Text style={styles.subtextModal}>Las cuotas deben sumar {moneda(prestamoPlan?.totalAmount)}.</Text>
               <Text style={styles.label}>Fecha límite general (opcional):</Text>
               <CampoFecha
                 value={fechaLimitePlan}
@@ -732,9 +734,9 @@ export default function PrestamosScreen({ token }) {
           >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitulo}>Abonar a {prestamoSeleccionado?.contactName}</Text>
-            <Text style={styles.subtextModal}>Saldo Pendiente: ${prestamoSeleccionado?.dueAmount.toFixed(2)}</Text>
+            <Text style={styles.subtextModal}>Saldo Pendiente: {moneda(prestamoSeleccionado?.dueAmount)}</Text>
 
-            <Text style={styles.label}>Monto a Abonar ($):</Text>
+            <Text style={styles.label}>Monto a Abonar ({currencyCode}):</Text>
             <TextInput 
               style={styles.input} 
               placeholder="0.00" 
@@ -783,7 +785,7 @@ export default function PrestamosScreen({ token }) {
           >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitulo}>Editar pago</Text>
-            <Text style={styles.label}>Monto del pago ($):</Text>
+            <Text style={styles.label}>Monto del pago ({currencyCode}):</Text>
             <TextInput
               style={styles.input}
               keyboardType="numeric"

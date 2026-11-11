@@ -7,6 +7,10 @@ const { obtenerSaldosCuentasFinancieras } = require('../utils/financialAccounts'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nivia_secret_key_2026';
 const TIPOS_CUENTA_PREDEFINIDOS = new Set(['EFECTIVO', 'BANCO', 'DIGITAL', 'DEBITO', 'CREDITO']);
+const MONEDAS_DISPONIBLES = new Set([
+  'ARS', 'BOB', 'BRL', 'CAD', 'CLP', 'COP', 'CRC', 'DOP', 'EUR',
+  'GBP', 'GTQ', 'HNL', 'MXN', 'NIO', 'PAB', 'PEN', 'PYG', 'USD', 'UYU'
+]);
 // Middleware de autenticación JWT
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -394,6 +398,7 @@ router.get('/mi-cuenta', autenticarToken, async (req, res) => {
         id: relacion.account.id,
         name: relacion.account.name,
         type: relacion.account.type,
+        currency: relacion.account.currency,
         role: relacion.role,
         miembros
       }
@@ -401,6 +406,32 @@ router.get('/mi-cuenta', autenticarToken, async (req, res) => {
   } catch (error) {
     console.error('Error al obtener cuenta:', error);
     res.status(500).json({ error: 'Error al consultar la cuenta en PostgreSQL.' });
+  }
+});
+
+router.put('/mi-cuenta/moneda', autenticarToken, async (req, res) => {
+  try {
+    const currency = typeof req.body.currency === 'string' ? req.body.currency.toUpperCase() : '';
+    if (!MONEDAS_DISPONIBLES.has(currency)) {
+      return res.status(400).json({ error: 'Selecciona una moneda compatible.' });
+    }
+
+    const relacion = await prisma.accountUser.findFirst({
+      where: { userId: req.usuario.userId },
+      include: { account: true }
+    });
+    if (!relacion) {
+      return res.status(404).json({ error: 'No se encontró una cuenta asociada.' });
+    }
+
+    const cuenta = await prisma.account.update({
+      where: { id: relacion.accountId },
+      data: { currency }
+    });
+    res.json({ exito: true, currency: cuenta.currency });
+  } catch (error) {
+    console.error('Error al actualizar la moneda de la cuenta:', error);
+    res.status(500).json({ error: 'Error al actualizar la moneda.' });
   }
 });
 

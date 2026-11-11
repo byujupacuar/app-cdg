@@ -46,6 +46,7 @@ model Account {
   id                        String                     @id @default(uuid())
   name                      String
   type                      AccountType                @default(INDIVIDUAL)
+  currency                  String                     @default("USD")
   users                     AccountUser[]
   transactions              Transaction[]
   financialAccounts         FinancialAccount[]

@@ -7,7 +7,8 @@ import Presupuestos from './components/Presupuestos';
 import Prestamos from './components/Prestamos';
 import Analisis from './components/Analisis';
 import Cuentas from './components/Cuentas';
-import { invitarPareja, obtenerMiCuenta } from './services/api';
+import { actualizarMonedaCuenta, invitarPareja, obtenerMiCuenta } from './services/api';
+import { availableCurrencies } from './currency';
 import './App.css';
 
 const navigation = [
@@ -36,6 +37,7 @@ function App() {
   const [invitando, setInvitando] = useState(false);
   const [errorCuenta, setErrorCuenta] = useState('');
   const [mensajeInvitacion, setMensajeInvitacion] = useState('');
+  const [guardandoMoneda, setGuardandoMoneda] = useState(false);
   const menuUsuarioRef = useRef(null);
   const [seccion, setSeccion] = useState('dashboard');
   const [actualizacion, setActualizacion] = useState(0);
@@ -128,6 +130,19 @@ function App() {
   };
 
   const actualizarResumen = () => setActualizacion((current) => current + 1);
+  const cambiarMoneda = async (event) => {
+    const currency = event.target.value;
+    setGuardandoMoneda(true);
+    setErrorCuenta('');
+    try {
+      await actualizarMonedaCuenta(currency);
+      setCuentaUsuario((actual) => actual ? { ...actual, currency } : actual);
+    } catch (error) {
+      setErrorCuenta(error.response?.data?.error || 'No se pudo actualizar la moneda.');
+    } finally {
+      setGuardandoMoneda(false);
+    }
+  };
 
   if (!token) {
     return <Auth onLoginSuccess={handleLogin} />;
@@ -201,6 +216,15 @@ function App() {
                   {cuentaUsuario?.miembros?.map((miembro) => (
                     <small key={miembro.id}>{miembro.name} · {miembro.email}</small>
                   ))}
+                  {cuentaUsuario && (
+                    <label className="user-menu-currency" htmlFor="account-currency">
+                      Moneda
+                      <select id="account-currency" value={cuentaUsuario.currency || 'USD'} onChange={cambiarMoneda} disabled={guardandoMoneda}>
+                        {availableCurrencies.map(([code, name]) => <option value={code} key={code}>{name} ({code})</option>)}
+                      </select>
+                      <small>Se aplica a toda la cuenta compartida. No convierte los montos.</small>
+                    </label>
+                  )}
                 </div>
                 {cargandoCuentaUsuario ? (
                   <p className="user-menu-note">Cargando información de la cuenta...</p>
@@ -236,25 +260,25 @@ function App() {
 
         <div className="app-page">
           {seccion === 'dashboard' && (
-            <Dashboard refreshKey={actualizacion} onNavigate={setSeccion} userName={usuario?.name} />
+            <Dashboard refreshKey={actualizacion} onNavigate={setSeccion} userName={usuario?.name} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'analisis' && (
-            <Analisis refreshKey={actualizacion} onNavigate={setSeccion} />
+            <Analisis refreshKey={actualizacion} onNavigate={setSeccion} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'movimientos' && (
-            <Registro onGuardado={actualizarResumen} onNavigate={setSeccion} />
+            <Registro onGuardado={actualizarResumen} onNavigate={setSeccion} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'categorias' && (
             <Categorias />
           )}
           {seccion === 'presupuestos' && (
-            <Presupuestos />
+            <Presupuestos currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'prestamos' && (
-            <Prestamos />
+            <Prestamos currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'cuentas' && (
-            <Cuentas onUpdated={actualizarResumen} />
+            <Cuentas onUpdated={actualizarResumen} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
         </div>
       </main>

@@ -9,11 +9,7 @@ import {
   obtenerPrestamos,
   obtenerCuentasFinancieras
 } from '../services/api';
-
-const currency = (amount) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(amount) || 0);
+import { currencySymbol, formatCurrency } from '../currency';
 
 const todayIsoDate = () => {
   const date = new Date();
@@ -26,7 +22,8 @@ const formatDate = (value) => {
   return new Date(year, month - 1, day).toLocaleDateString();
 };
 
-export default function Prestamos() {
+export default function Prestamos({ currencyCode = 'USD' }) {
+  const currency = (amount) => formatCurrency(amount, currencyCode);
   const [prestamos, setPrestamos] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [totales, setTotales] = useState({ totalPorCobrar: 0, totalPorPagar: 0 });
@@ -420,7 +417,7 @@ export default function Prestamos() {
             <input id="loan-contact" type="text" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="Ej. Alex" maxLength={80} required />
             <label htmlFor="loan-total">Monto total</label>
             <div className="budget-amount-field">
-              <span>$</span>
+              <span>{currencySymbol(currencyCode)}</span>
               <input id="loan-total" type="number" min="0.01" step="0.01" value={totalAmount} onChange={(event) => setTotalAmount(event.target.value)} placeholder="0.00" required />
             </div>
             <label htmlFor="loan-account">{tipoNuevo === 'OTORGADO' ? 'Cuenta de donde sale el préstamo' : 'Cuenta donde ingresa el préstamo'}</label>
@@ -488,7 +485,7 @@ export default function Prestamos() {
             <form onSubmit={submitPayment}>
               <label htmlFor="loan-payment">Monto del abono</label>
               <div className="budget-amount-field">
-                <span>$</span>
+                <span>{currencySymbol(currencyCode)}</span>
                 <input id="loan-payment" type="number" min="0.01" step="0.01" value={abono} onChange={(event) => setAbono(event.target.value)} placeholder="0.00" required autoFocus />
               </div>
               <label htmlFor="loan-payment-date">Fecha del pago</label>
@@ -517,7 +514,7 @@ export default function Prestamos() {
             <form onSubmit={submitPaymentEdit}>
               <label htmlFor="edit-loan-payment">Monto del pago</label>
               <div className="budget-amount-field">
-                <span>$</span>
+                <span>{currencySymbol(currencyCode)}</span>
                 <input id="edit-loan-payment" type="number" min="0.01" step="0.01" value={montoPagoEditado} onChange={(event) => setMontoPagoEditado(event.target.value)} required />
               </div>
               <label htmlFor="edit-loan-payment-date">Fecha del pago</label>

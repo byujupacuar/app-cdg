@@ -8,11 +8,7 @@ import {
   eliminarMovimiento,
   obtenerTransferencias
 } from '../services/api';
-
-const currency = (amount) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(amount) || 0);
+import { currencySymbol, formatCurrency } from '../currency';
 
 const fechaActualLocal = () => {
   const hoy = new Date();
@@ -25,7 +21,8 @@ const mostrarFechaMovimiento = (value) => {
   return new Date(year, month - 1, day).toLocaleDateString();
 };
 
-export default function Registro({ onGuardado, onNavigate }) {
+export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' }) {
+  const currency = (amount) => formatCurrency(amount, currencyCode);
   const [tipo, setTipo] = useState('GASTO');
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -334,7 +331,7 @@ export default function Registro({ onGuardado, onNavigate }) {
           <form onSubmit={handleGuardar}>
             <label htmlFor="movement-amount">¿Cuánto?</label>
             <div className="amount-field">
-              <span>$</span>
+              <span>{currencySymbol(currencyCode)}</span>
               <input
                 id="movement-amount"
                 type="number"
@@ -513,7 +510,7 @@ export default function Registro({ onGuardado, onNavigate }) {
                 </div>
                 <div className="transaction-history-actions">
                   <strong className={movimiento.type === 'INGRESO' ? 'amount-positive' : 'amount-negative'}>
-                    {movimiento.type === 'INGRESO' ? '+' : '-'}${Number(movimiento.amount).toFixed(2)}
+                    {movimiento.type === 'INGRESO' ? '+' : '-'}{currency(movimiento.amount)}
                   </strong>
                   <div>
                     <button type="button" className="text-button" onClick={() => handleEditar(movimiento)} aria-label={`Editar movimiento ${movimiento.category?.name || ''}`}>

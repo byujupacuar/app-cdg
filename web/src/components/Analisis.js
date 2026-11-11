@@ -1,10 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { exportarMovimientosCSV, obtenerDashboard } from '../services/api';
-
-const currency = (value) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(value) || 0);
+import { formatCurrency } from '../currency';
 
 const fechaLocal = (fecha) => {
   const year = fecha.getFullYear();
@@ -40,7 +36,8 @@ const fechaLegible = (value) => {
     .format(new Date(`${value}T12:00:00`));
 };
 
-export default function Analisis({ refreshKey, onNavigate }) {
+export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' }) {
+  const currency = (value) => formatCurrency(value, currencyCode);
   const [desde, setDesde] = useState(inicial.fechaInicio);
   const [hasta, setHasta] = useState(inicial.fechaFin);
   const [mesSeleccionado, setMesSeleccionado] = useState(fechaLocal(new Date()).slice(0, 7));

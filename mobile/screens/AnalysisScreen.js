@@ -11,15 +11,15 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { obtenerMovimientosReal } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
 const rangos = [
   { key: '7D', label: '7 días', dias: 7, grupos: 7 },
   { key: '30D', label: '30 días', dias: 30, grupos: 4 },
   { key: '90D', label: '90 días', dias: 90, grupos: 3 }
 ];
-const moneda = (valor) => `$${(Number(valor) || 0).toFixed(2)}`;
-
-export default function AnalysisScreen({ token }) {
+export default function AnalysisScreen({ token, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [movimientos, setMovimientos] = useState([]);
   const [rango, setRango] = useState('30D');
   const [loading, setLoading] = useState(true);

@@ -12,10 +12,10 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { obtenerDashboardReal, obtenerMovimientosReal } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
-const moneda = (valor) => `$${(Number(valor) || 0).toFixed(2)}`;
-
-export default function DashboardScreen({ token, navigation, usuario }) {
+export default function DashboardScreen({ token, navigation, usuario, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [datos, setDatos] = useState(null);

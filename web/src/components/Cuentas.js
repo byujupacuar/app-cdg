@@ -8,11 +8,7 @@ import {
   obtenerCuentasFinancieras,
   obtenerTransferencias
 } from '../services/api';
-
-const currency = (value) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(value) || 0);
+import { formatCurrency } from '../currency';
 
 const etiquetasTipo = {
   EFECTIVO: 'Efectivo',
@@ -23,7 +19,8 @@ const etiquetasTipo = {
   TARJETA: 'Tarjeta de débito'
 };
 
-export default function Cuentas({ onUpdated }) {
+export default function Cuentas({ onUpdated, currencyCode = 'USD' }) {
+  const currency = (value) => formatCurrency(value, currencyCode);
   const [cuentas, setCuentas] = useState([]);
   const [transferencias, setTransferencias] = useState([]);
   const [totalDisponible, setTotalDisponible] = useState(0);

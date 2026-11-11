@@ -1,12 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { obtenerCategorias, obtenerPresupuestos, guardarPresupuesto } from '../services/api';
+import { currencySymbol, formatCurrency } from '../currency';
 
-const currency = (amount) => new Intl.NumberFormat('es', {
-  style: 'currency',
-  currency: 'USD'
-}).format(Number(amount) || 0);
-
-export default function Presupuestos() {
+export default function Presupuestos({ currencyCode = 'USD' }) {
+  const currency = (amount) => formatCurrency(amount, currencyCode);
   const [presupuestos, setPresupuestos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [categoryId, setCategoryId] = useState('');
@@ -165,7 +162,7 @@ export default function Presupuestos() {
 
             <label htmlFor="budget-limit">Límite mensual</label>
             <div className="budget-amount-field">
-              <span>$</span>
+              <span>{currencySymbol(currencyCode)}</span>
               <input
                 id="budget-limit"
                 type="number"

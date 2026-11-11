@@ -15,6 +15,7 @@ import {
   eliminarMovimientoReal
 } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
 const fechaActualLocal = () => {
   const hoy = new Date();
@@ -99,7 +100,8 @@ function SelectorFechaMovimiento({ value, onChange }) {
   );
 }
 
-export default function RegistroScreen({ token, navigation, route }) {
+export default function RegistroScreen({ token, navigation, route, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const scrollRef = useRef(null);
   const [tipo, setTipo] = useState('GASTO'); // 'GASTO' | 'INGRESO'
   const [showForm, setShowForm] = useState(false);
@@ -401,10 +403,10 @@ export default function RegistroScreen({ token, navigation, route }) {
 
       <View style={styles.periodCard}>
         <Text style={styles.periodLabel}>Balance de {fechaActual.toLocaleDateString('es', { month: 'long' })}</Text>
-        <Text style={styles.periodAmount}>{totalPeriodo < 0 ? '−' : ''}${Math.abs(totalPeriodo).toFixed(2)}</Text>
+        <Text style={styles.periodAmount}>{totalPeriodo < 0 ? '−' : ''}{moneda(Math.abs(totalPeriodo))}</Text>
         <View style={styles.periodTotals}>
-          <Text style={styles.periodIncome}>↑ ${ingresosPeriodo.toFixed(2)} ingresos</Text>
-          <Text style={styles.periodExpense}>↓ ${gastosPeriodo.toFixed(2)} gastos</Text>
+          <Text style={styles.periodIncome}>↑ {moneda(ingresosPeriodo)} ingresos</Text>
+          <Text style={styles.periodExpense}>↓ {moneda(gastosPeriodo)} gastos</Text>
         </View>
       </View>
 
@@ -463,7 +465,7 @@ export default function RegistroScreen({ token, navigation, route }) {
       </View>
 
       {/* Input de Monto */}
-      <Text style={styles.label}>Monto ($):</Text>
+      <Text style={styles.label}>Monto ({currencyCode}):</Text>
       <TextInput 
         style={styles.inputMonto} 
         placeholder="0.00" 
@@ -609,7 +611,7 @@ export default function RegistroScreen({ token, navigation, route }) {
                   styles.movimientoMonto,
                   { color: movimiento.type === 'INGRESO' ? colors.green700 : colors.red }
                 ]}>
-                  {movimiento.type === 'INGRESO' ? '+' : '-'}${Number(movimiento.amount).toFixed(2)}
+                  {movimiento.type === 'INGRESO' ? '+' : '-'}{moneda(movimiento.amount)}
                 </Text>
                 <View style={styles.botonesMovimiento}>
                   <TouchableOpacity

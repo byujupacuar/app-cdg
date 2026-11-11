@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './WebDashboard.css';
+import { currencySymbol, formatCurrency } from '../currency';
 
-export default function WebDashboard({ token, onLogout }) {
+export default function WebDashboard({ token, onLogout, currencyCode = 'USD' }) {
+  const currency = (amount) => formatCurrency(amount, currencyCode);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   
@@ -77,18 +79,18 @@ export default function WebDashboard({ token, onLogout }) {
           <div className="stitch-card balance-hero">
             <span className="card-label">Balance Disponible Total</span>
             <h2 className={datos.resumen.balanceTotal >= 0 ? 'txt-green' : 'txt-red'}>
-              ${datos.resumen.balanceTotal.toFixed(2)}
+              {currency(datos.resumen.balanceTotal)}
             </h2>
           </div>
 
           <div className="stitch-card metric-sub">
             <span className="card-label">🟢 Ingresos del Mes</span>
-            <h3 className="txt-green">+${datos.resumen.totalIngresos.toFixed(2)}</h3>
+            <h3 className="txt-green">+{currency(datos.resumen.totalIngresos)}</h3>
           </div>
 
           <div className="stitch-card metric-sub">
             <span className="card-label">🔴 Gastos del Mes</span>
-            <h3 className="txt-red">-${datos.resumen.totalGastos.toFixed(2)}</h3>
+            <h3 className="txt-red">-{currency(datos.resumen.totalGastos)}</h3>
           </div>
         </section>
 
@@ -114,7 +116,7 @@ export default function WebDashboard({ token, onLogout }) {
             </div>
 
             <div className="input-amount-container">
-              <span>$</span>
+              <span>{currencySymbol(currencyCode)}</span>
               <input 
                 type="number" 
                 placeholder="0.00" 
@@ -155,7 +157,7 @@ export default function WebDashboard({ token, onLogout }) {
                 <div key={cat.id} className="cat-bar-row">
                   <div className="cat-bar-header">
                     <span>{cat.icono} {cat.nombre}</span>
-                    <span className="cat-amount">${cat.monto.toFixed(2)} ({cat.porcentaje}%)</span>
+                    <span className="cat-amount">{currency(cat.monto)} ({cat.porcentaje}%)</span>
                   </div>
                   <div className="bar-track">
                     <div className="bar-fill" style={{ width: `${cat.porcentaje}%` }}></div>
@@ -174,7 +176,7 @@ export default function WebDashboard({ token, onLogout }) {
                     <small>{m.description} • <em>Por {m.user}</em></small>
                   </div>
                   <span className={m.type === 'INGRESO' ? 'item-amount txt-green' : 'item-amount'}>
-                    {m.type === 'INGRESO' ? '+' : '-'}${m.amount.toFixed(2)}
+                    {m.type === 'INGRESO' ? '+' : '-'}{currency(m.amount)}
                   </span>
                 </div>
               ))}

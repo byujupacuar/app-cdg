@@ -22,6 +22,7 @@ import {
   obtenerTransferencias
 } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
 const tipos = [
   { value: 'EFECTIVO', label: 'Efectivo' },
@@ -33,9 +34,9 @@ const tipos = [
 ];
 
 const etiquetaTipo = (tipo) => tipos.find((item) => item.value === tipo)?.label || tipo;
-const moneda = (monto) => `$${(Number(monto) || 0).toFixed(2)}`;
 
-export default function CuentasScreen({ token }) {
+export default function CuentasScreen({ token, currencyCode = 'USD' }) {
+  const moneda = (monto) => formatCurrency(monto, currencyCode);
   const [cuentas, setCuentas] = useState([]);
   const [transferencias, setTransferencias] = useState([]);
   const [totalDisponible, setTotalDisponible] = useState(0);
@@ -335,7 +336,7 @@ export default function CuentasScreen({ token }) {
             )}
             {cuentaAjustando === cuenta.id && (
               <View style={styles.ajusteSaldo}>
-                <Text style={styles.label}>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'}</Text>
+                <Text style={styles.label}>{cuenta.esCredito ? 'Deuda actual' : 'Saldo actual'} ({currencyCode})</Text>
                 <Text style={styles.textoAyuda}>El ajuste no modifica tus movimientos anteriores.</Text>
                 <TextInput style={styles.input} value={saldoAjustado} onChangeText={setSaldoAjustado} keyboardType="decimal-pad" />
                 <View style={styles.botonesAjuste}>
@@ -385,7 +386,7 @@ export default function CuentasScreen({ token }) {
           ) : <Text style={styles.textoAyuda}>Primero añade una cuenta bancaria para vincular la tarjeta.</Text>
         ) : (
           <>
-            <Text style={styles.label}>{tipo === 'CREDITO' ? 'Deuda actual al añadirla' : 'Saldo actual al añadirla'}</Text>
+            <Text style={styles.label}>{tipo === 'CREDITO' ? 'Deuda actual al añadirla' : 'Saldo actual al añadirla'} ({currencyCode})</Text>
             <TextInput style={styles.input} value={saldoInicial} onChangeText={setSaldoInicial} keyboardType="decimal-pad" />
             <Text style={styles.textoAyuda}>
               {tipo === 'CREDITO'

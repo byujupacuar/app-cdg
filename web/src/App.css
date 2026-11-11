@@ -144,6 +144,9 @@ button { color: inherit; }
 .user-menu-account { border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; }
 .user-menu-account > strong { color: var(--green-950); font-size: 13px; }
 .user-menu-account > small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.user-menu-currency { color: var(--ink); display: flex; flex-direction: column; font-size: 11px; font-weight: 700; gap: 7px; padding: 12px 0; }
+.user-menu-currency select { background: #fbfcfb; border: 1px solid #e6ebe7; border-radius: 8px; color: var(--ink); min-height: 38px; padding: 8px 10px; }
+.user-menu-currency small { color: var(--muted); font-size: 10px; font-weight: 400; }
 .user-menu-invite { display: flex; flex-direction: column; gap: 8px; padding: 13px 0; }
 .user-menu-invite label { color: var(--ink); font-size: 11px; font-weight: 700; }
 .user-menu-invite > small, .user-menu-note { color: var(--muted); font-size: 10px; margin: 0; }

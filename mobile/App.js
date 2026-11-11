@@ -7,7 +7,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { colors } from './theme';
 import { clearSession, getPendingMutationCount, loadSession, saveSession } from './database/offlineStore';
-import { prepararDatosOffline, sincronizarPendientes } from './api';
+import { actualizarMonedaCuenta, obtenerMiCuenta, prepararDatosOffline, sincronizarPendientes } from './api';
 
 // Importación de Pantallas
 import AuthScreen from './screens/AuthScreen';
@@ -32,6 +32,23 @@ export default function App() {
   const [cambiosPendientes, setCambiosPendientes] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
   const [pantallaExtra, setPantallaExtra] = useState(null);
+  const [currencyCode, setCurrencyCode] = useState('USD');
+
+  useEffect(() => {
+    if (!token) return undefined;
+    let activa = true;
+    obtenerMiCuenta(token).then((res) => {
+      if (activa && res.exito) setCurrencyCode(res.datos?.currency || 'USD');
+    });
+    return () => { activa = false; };
+  }, [token]);
+
+  const guardarMoneda = async (currency) => {
+    const res = await actualizarMonedaCuenta(currency, token);
+    if (!res.exito) return res;
+    setCurrencyCode(res.currency);
+    return res;
+  };
 
   useEffect(() => {
     let activa = true;
@@ -121,6 +138,7 @@ export default function App() {
     }
     setToken(null);
     setUsuario(null);
+    setCurrencyCode('USD');
     setCambiosPendientes(0);
     setMenuVisible(false);
     setPantallaExtra(null);
@@ -287,26 +305,26 @@ export default function App() {
         })}
         >
           <Tab.Screen name="Resumen" options={{ tabBarLabel: 'Resumen' }}>
-            {(props) => <DashboardScreen {...props} token={token} usuario={usuario} />}
+            {(props) => <DashboardScreen {...props} token={token} usuario={usuario} currencyCode={currencyCode} />}
           </Tab.Screen>
 
           <Tab.Screen name="Análisis" options={{ tabBarLabel: 'Análisis' }}>
-            {(props) => <AnalysisScreen {...props} token={token} />}
+            {(props) => <AnalysisScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Movimientos">
-            {(props) => <RegistroScreen {...props} token={token} />}
+            {(props) => <RegistroScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Categorías">
-            {(props) => <CategoriasScreen {...props} token={token} />}
+            {(props) => <CategoriasScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Presupuestos">
-            {(props) => <PresupuestosScreen {...props} token={token} />}
+            {(props) => <PresupuestosScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Préstamos">
-            {(props) => <PrestamosScreen {...props} token={token} />}
+            {(props) => <PrestamosScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Cuentas">
-            {(props) => <CuentasScreen {...props} token={token} />}
+            {(props) => <CuentasScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
         </Tab.Navigator>
         <TouchableOpacity
@@ -377,7 +395,7 @@ export default function App() {
               <ParejaScreen token={token} onLogout={handleLogout} />
             )}
             {pantallaExtra === 'Perfil' && (
-              <PerfilScreen usuario={usuario} onLogout={handleLogout} />
+              <PerfilScreen usuario={usuario} currencyCode={currencyCode} onCurrencyChange={guardarMoneda} onLogout={handleLogout} />
             )}
           </SafeAreaView>
         </Modal>

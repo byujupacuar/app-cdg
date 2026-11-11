@@ -56,6 +56,11 @@ export const obtenerMiCuenta = async () => {
   return res.data;
 };
 
+export const actualizarMonedaCuenta = async (currency) => {
+  const res = await api.put('/api/cuentas/mi-cuenta/moneda', { currency });
+  return res.data;
+};
+
 export const invitarPareja = async (emailPareja) => {
   const res = await api.post('/api/cuentas/invitar', { emailPareja });
   return res.data;

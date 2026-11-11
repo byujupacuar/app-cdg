@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { obtenerPresupuestos, obtenerCategorias, guardarPresupuesto } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
-export default function PresupuestosScreen({ token }) {
+export default function PresupuestosScreen({ token, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [presupuestos, setPresupuestos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -145,10 +147,10 @@ export default function PresupuestosScreen({ token }) {
 
                 <View style={styles.cardFooter}>
                   <Text style={styles.montoDetalle}>
-                    Gastado: <Text style={{ fontWeight: 'bold', color: colorSemaforo }}>${item.spentAmount.toFixed(2)}</Text>
+                    Gastado: <Text style={{ fontWeight: 'bold', color: colorSemaforo }}>{moneda(item.spentAmount)}</Text>
                   </Text>
                   <Text style={styles.montoDetalle}>
-                    Límite: <Text style={{ fontWeight: 'bold', color: colors.ink }}>${item.limitAmount.toFixed(2)}</Text>
+                    Límite: <Text style={{ fontWeight: 'bold', color: colors.ink }}>{moneda(item.limitAmount)}</Text>
                   </Text>
                 </View>
               </View>
@@ -194,7 +196,7 @@ export default function PresupuestosScreen({ token }) {
               </ScrollView>
             )}
 
-            <Text style={styles.label}>Monto Límite ($):</Text>
+            <Text style={styles.label}>Monto Límite ({currencyCode}):</Text>
             <TextInput 
               style={styles.input} 
               placeholder="0.00" 

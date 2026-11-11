@@ -20,8 +20,10 @@ import {
   eliminarCategoria 
 } from '../api';
 import { colors } from '../theme';
+import { formatCurrency } from '../currency';
 
-export default function CategoriasScreen({ token }) {
+export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
+  const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [categorias, setCategorias] = useState([]);
   const [presupuestos, setPresupuestos] = useState([]);
   const [dashboard, setDashboard] = useState(null);
@@ -168,8 +170,8 @@ export default function CategoriasScreen({ token }) {
         <View style={styles.budgetSummary}>
           <Text style={styles.summaryLabel}>Presupuestos utilizados este mes</Text>
           <View style={styles.summaryAmounts}>
-            <Text style={styles.summarySpent}>${totalGastadoPresupuestos.toFixed(2)}</Text>
-            <Text style={styles.summaryLimit}>de ${totalPresupuestado.toFixed(2)}</Text>
+            <Text style={styles.summarySpent}>{moneda(totalGastadoPresupuestos)}</Text>
+            <Text style={styles.summaryLimit}>de {moneda(totalPresupuestado)}</Text>
           </View>
           <View style={styles.summaryTrack}>
             <View style={[styles.summaryFill, { width: `${totalPresupuestado > 0 ? Math.min(100, totalGastadoPresupuestos / totalPresupuestado * 100) : 0}%` }]} />
@@ -214,7 +216,7 @@ export default function CategoriasScreen({ token }) {
                   {cat.type === 'GASTO' && (
                     <View style={styles.categoryUsage}>
                       <Text style={styles.categoryUsageText}>
-                        ${gastado.toFixed(2)}{limite > 0 ? ` de $${limite.toFixed(2)}` : ' gastados'}
+                        {moneda(gastado)}{limite > 0 ? ` de ${moneda(limite)}` : ' gastados'}
                       </Text>
                       {limite > 0 && <View style={styles.categoryTrack}><View style={[styles.categoryFill, { width: `${Math.min(100, gastado / limite * 100)}%` }]} /></View>}
                     </View>
