@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
   scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, padding: 24, elevation: 0 },
   appLogo: { width: 112, height: 112, alignSelf: 'center', marginBottom: 4 },
-  appTitle: { fontSize: 32, fontWeight: '700', color: colors.green950, textAlign: 'center', letterSpacing: -1 },
-  appSub: { fontSize: 12, color: colors.muted, textAlign: 'center', marginBottom: 22 },
-  title: { fontSize: 17, fontWeight: '700', color: colors.green950, marginBottom: 15, textAlign: 'center' },
+  appTitle: { fontSize: 36, fontWeight: '700', color: colors.green950, textAlign: 'center', letterSpacing: -1 },
+  appSub: { fontSize: 13, color: colors.muted, textAlign: 'center', marginBottom: 22 },
+  title: { fontSize: 19, fontWeight: '700', color: colors.green950, marginBottom: 15, textAlign: 'center' },
   btnGoogle: { 
     backgroundColor: '#ffffff', 
     borderWidth: 1, 
@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     elevation: 1 
   },
-  btnGoogleText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
+  btnGoogleText: { color: colors.ink, fontWeight: '700', fontSize: 15 },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
-  dividerText: { marginHorizontal: 10, color: colors.muted, fontSize: 11 },
-  input: { backgroundColor: '#fbfcfb', borderColor: colors.line, borderWidth: 1, borderRadius: 9, padding: 13, marginBottom: 11, fontSize: 14, color: colors.ink },
+  dividerText: { marginHorizontal: 10, color: colors.muted, fontSize: 12 },
+  input: { backgroundColor: '#fbfcfb', borderColor: colors.line, borderWidth: 1, borderRadius: 9, padding: 13, marginBottom: 11, fontSize: 16, color: colors.ink },
   button: { backgroundColor: colors.green800, padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  buttonText: { color: colors.white, fontSize: 16, fontWeight: '700' },
   switchContainer: { marginTop: 18, alignItems: 'center' },
-  switchText: { color: colors.green800, fontSize: 12, fontWeight: '700' }
+  switchText: { color: colors.green800, fontSize: 13, fontWeight: '700' }
 });

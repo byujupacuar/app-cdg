@@ -53,15 +53,15 @@ export default function PerfilScreen({ usuario, currencyCode = 'USD', onCurrency
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: colors.canvas, padding: 18, paddingTop: 24 },
-  titulo: { fontSize: 22, fontWeight: '700', color: colors.green950, marginBottom: 18 },
+  titulo: { fontSize: 25, fontWeight: '700', color: colors.green950, marginBottom: 18 },
   card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, padding: 18, borderRadius: 14, marginBottom: 22 },
-  label: { fontSize: 11, color: colors.muted, marginTop: 10, fontWeight: '600' },
-  valor: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  descripcion: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 6, marginBottom: 10 },
+  label: { fontSize: 12, color: colors.muted, marginTop: 10, fontWeight: '600' },
+  valor: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  descripcion: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 6, marginBottom: 10 },
   opcionMoneda: { borderTopWidth: 1, borderTopColor: colors.line, paddingVertical: 11 },
   opcionMonedaActiva: { backgroundColor: colors.green100, paddingHorizontal: 8, borderRadius: 8 },
   valorActivo: { color: colors.green800 },
-  seleccion: { color: colors.green800, fontSize: 10, marginTop: 3 },
+  seleccion: { color: colors.green800, fontSize: 12, marginTop: 3 },
   botonLogout: { backgroundColor: colors.redSoft, padding: 14, borderRadius: 10, alignItems: 'center' },
-  textoLogout: { color: colors.red, fontSize: 13, fontWeight: '700' }
+  textoLogout: { color: colors.red, fontSize: 15, fontWeight: '700' }
 });

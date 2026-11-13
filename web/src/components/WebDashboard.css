@@ -39,7 +39,7 @@ body {
 }
 
 .brand-icon {
-  font-size: 28px;
+  font-size: 31px;
 }
 
 .stitch-nav {
@@ -90,7 +90,7 @@ body {
   background: var(--stitch-border);
   padding: 4px 10px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: bold;
 }
 
@@ -122,18 +122,18 @@ body {
 }
 
 .card-label {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--stitch-subtext);
   font-weight: bold;
 }
 
 .balance-hero h2 {
-  font-size: 36px;
+  font-size: 40px;
   margin: 8px 0 0 0;
 }
 
 .metric-sub h3 {
-  font-size: 24px;
+  font-size: 27px;
   margin: 8px 0 0 0;
 }
 
@@ -173,7 +173,7 @@ body {
   background: var(--stitch-bg);
   border-radius: 12px;
   padding: 12px 16px;
-  font-size: 28px;
+  font-size: 31px;
   font-weight: bold;
   margin-bottom: 16px;
 }
@@ -181,7 +181,7 @@ body {
 .input-amount-container input {
   border: none;
   background: transparent;
-  font-size: 28px;
+  font-size: 31px;
   font-weight: bold;
   width: 100%;
   outline: none;
@@ -194,7 +194,7 @@ body {
 
 .form-group label {
   display: block;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: bold;
   margin-bottom: 6px;
 }
@@ -205,7 +205,7 @@ body {
   border-radius: 10px;
   border: 1px solid var(--stitch-border);
   background: var(--stitch-bg);
-  font-size: 14px;
+  font-size: 16px;
   box-sizing: border-box;
 }
 
@@ -216,7 +216,7 @@ body {
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
   cursor: pointer;
   margin-top: 8px;
@@ -230,7 +230,7 @@ body {
 .cat-bar-header {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: bold;
   margin-bottom: 6px;
 }
@@ -270,7 +270,7 @@ body {
 }
 
 .item-icon {
-  font-size: 22px;
+  font-size: 25px;
   margin-right: 12px;
 }
 

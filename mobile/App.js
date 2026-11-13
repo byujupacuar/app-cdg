@@ -175,7 +175,7 @@ export default function App() {
           <Text style={{
             backgroundColor: colors.green950,
             color: colors.white,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: '600',
             paddingHorizontal: 12,
             paddingVertical: 7,
@@ -190,7 +190,7 @@ export default function App() {
           <Text style={{
             backgroundColor: colors.green100,
             color: colors.green800,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: '600',
             paddingHorizontal: 12,
             paddingVertical: 7,
@@ -216,7 +216,7 @@ export default function App() {
                 style={{ width: 36, height: 36, marginRight: 7 }}
                 resizeMode="contain"
               />
-              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '900', letterSpacing: 1.2 }}>NIVIA</Text>
+              <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '900', letterSpacing: 1.2 }}>NIVIA</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
               <TouchableOpacity
@@ -232,7 +232,7 @@ export default function App() {
                 )}
                 style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.blue50, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text style={{ fontSize: 15 }}>🔔</Text>
+                <Text style={{ fontSize: 17 }}>🔔</Text>
                 {(cambiosPendientes > 0 || conexionDisponible === false) && <View style={{ position: 'absolute', width: 7, height: 7, right: 5, top: 5, borderRadius: 4, backgroundColor: colors.emerald700 }} />}
               </TouchableOpacity>
               <TouchableOpacity
@@ -241,7 +241,7 @@ export default function App() {
                 onPress={() => setMenuVisible(true)}
                 style={{ width: 35, height: 35, borderRadius: 18, backgroundColor: colors.emerald100, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text style={{ color: colors.emerald700, fontSize: 13, fontWeight: '800' }}>{usuario?.name?.trim()?.[0]?.toUpperCase() || 'U'}</Text>
+                <Text style={{ color: colors.emerald700, fontSize: 15, fontWeight: '800' }}>{usuario?.name?.trim()?.[0]?.toUpperCase() || 'U'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -276,9 +276,9 @@ export default function App() {
           tabBarActiveTintColor: colors.blue700,
           tabBarInactiveTintColor: colors.muted,
           tabBarLabelStyle: {
-            fontSize: 8,
+            fontSize: 12,
             fontWeight: '700',
-            lineHeight: 10,
+            lineHeight: 12,
             marginBottom: 4
           },
           tabBarStyle: {
@@ -348,15 +348,15 @@ export default function App() {
             shadowOffset: { width: 0, height: 3 }
           }}
         >
-          <Text style={{ color: colors.white, fontSize: 29, lineHeight: 32, fontWeight: '400' }}>+</Text>
+          <Text style={{ color: colors.white, fontSize: 32, lineHeight: 36, fontWeight: '400' }}>+</Text>
         </TouchableOpacity>
       </View>
         <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(23,32,51,0.28)', justifyContent: 'flex-end' }}>
           <TouchableOpacity activeOpacity={1} onPress={() => setMenuVisible(false)} style={{ flex: 1 }} />
           <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 30 }}>
-            <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800', marginBottom: 5 }}>Más de Nivia</Text>
-            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 14 }}>{usuario?.name || usuario?.email || 'Tu cuenta'}</Text>
+            <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800', marginBottom: 5 }}>Más de Nivia</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 14 }}>{usuario?.name || usuario?.email || 'Tu cuenta'}</Text>
             {[
               ['Cuenta compartida', '♡', 'Cuenta'],
               ['Mi perfil', '○', 'Perfil']
@@ -369,8 +369,8 @@ export default function App() {
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: colors.line }}
               >
-                <Text style={{ color: colors.blue700, fontSize: 18, width: 33 }}>{icon}</Text>
-                <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '700' }}>{label}</Text>
+                <Text style={{ color: colors.blue700, fontSize: 20, width: 33 }}>{icon}</Text>
+                <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700' }}>{label}</Text>
                 <Text style={{ color: colors.muted, marginLeft: 'auto' }}>›</Text>
               </TouchableOpacity>
             ))}
@@ -389,7 +389,7 @@ export default function App() {
               onPress={() => setPantallaExtra(null)}
               style={{ paddingHorizontal: 18, paddingVertical: 12, backgroundColor: colors.white }}
             >
-              <Text style={{ color: colors.blue700, fontSize: 14, fontWeight: '700' }}>‹ Más de Nivia</Text>
+              <Text style={{ color: colors.blue700, fontSize: 16, fontWeight: '700' }}>‹ Más de Nivia</Text>
             </TouchableOpacity>
             {pantallaExtra === 'Cuenta' && (
               <ParejaScreen token={token} onLogout={handleLogout} />
