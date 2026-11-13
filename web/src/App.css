@@ -391,9 +391,9 @@ button { color: inherit; }
 .history-income { background: #edf6f0; }
 .history-expense { background: #faf1ee; }
 .transaction-history-details { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
-.transaction-history-details strong { color: var(--ink); font-size: 12px; }
-.transaction-history-details span { color: #7d8982; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.transaction-history-details small { color: #9aa39d; font-size: 12px; }
+.transaction-history-details strong { color: var(--ink); font-size: 16px; }
+.transaction-history-details span { color: #7d8982; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transaction-history-details small { color: #9aa39d; font-size: 16px; }
 .transaction-history-actions { align-items: flex-end; display: flex; flex-direction: column; gap: 5px; }
 .transaction-history-actions > strong { font-size: 12px; white-space: nowrap; }
 .transaction-history-actions > div { display: flex; gap: 10px; }
