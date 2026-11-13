@@ -68,7 +68,7 @@ export default function AuthScreen({ onLoginSuccess }) {
       } else {
         Alert.alert("Error de autenticación", res.mensaje);
       }
-    } catch (err) {
+    } catch {
       Alert.alert("Error", "No se pudo completar el inicio de sesión con Google.");
     }
   };

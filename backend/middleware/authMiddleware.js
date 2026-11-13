@@ -12,7 +12,7 @@ module.exports = (req, res, next) => {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
     req.user = verified; // Guarda el ID del usuario para usarlo después
     next(); // Deja pasar al usuario a la ruta solicitada
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: 'Token no válido o caducado.' });
   }
 };

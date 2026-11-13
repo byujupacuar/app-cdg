@@ -100,6 +100,5 @@ async function obtenerSaldosCuentasFinancieras(prisma, householdAccountId) {
 }
 
 module.exports = {
-  TIPOS_CUENTA_CREDITO,
   obtenerSaldosCuentasFinancieras
 };

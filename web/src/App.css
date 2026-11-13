@@ -119,19 +119,6 @@ button { color: inherit; }
   padding: 23px clamp(25px, 5vw, 72px);
 }
 .app-topbar h1 { color: var(--green-950); font-size: 28px; letter-spacing: -0.8px; margin: 5px 0 0; }
-.topbar-status {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  color: #718077;
-  display: flex;
-  font-size: 12px;
-  font-weight: 650;
-  gap: 8px;
-  padding: 9px 13px;
-}
-.topbar-status span { background: #56a77c; border-radius: 50%; height: 7px; width: 7px; }
 .user-menu { position: relative; }
 .user-menu-trigger { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; display: flex; gap: 10px; max-width: 270px; min-height: 47px; padding: 6px 10px 6px 7px; text-align: left; }
 .user-menu-trigger:hover, .user-menu-trigger[aria-expanded="true"] { border-color: #cbdccf; }
@@ -391,9 +378,9 @@ button { color: inherit; }
 .history-income { background: #edf6f0; }
 .history-expense { background: #faf1ee; }
 .transaction-history-details { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
-.transaction-history-details strong { color: var(--ink); font-size: 16px; }
-.transaction-history-details span { color: #7d8982; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.transaction-history-details small { color: #9aa39d; font-size: 16px; }
+.transaction-history-details strong { color: var(--ink); font-size: 12px; }
+.transaction-history-details span { color: #7d8982; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transaction-history-details small { color: #9aa39d; font-size: 12px; }
 .transaction-history-actions { align-items: flex-end; display: flex; flex-direction: column; gap: 5px; }
 .transaction-history-actions > strong { font-size: 12px; white-space: nowrap; }
 .transaction-history-actions > div { display: flex; gap: 10px; }
@@ -625,8 +612,6 @@ button { color: inherit; }
   .analysis-account-filter { align-items: stretch; flex-direction: column; }
   .analysis-account-filter select { min-width: 0; width: 100%; }
   .analysis-export-button { margin-left: 0; width: 100%; }
-  .analysis-balance-card, .analysis-metric-card { min-height: 120px; padding: 14px; }
-  .analysis-balance-card strong, .analysis-metric-card > strong { font-size: 21px; }
   .analysis-content-grid { grid-template-columns: 1fr; }
   .account-page-grid { grid-template-columns: 1fr; }
   .category-counts { align-self: flex-end; margin-top: -4px; }
@@ -686,12 +671,12 @@ button { color: inherit; }
 .button-secondary { border-color: #e4eaf2; color: #526179; }
 .button-secondary:hover { background: #f4f8ff; border-color: #ccdaf9; color: #2563eb; }
 .button-quiet:hover { background: #f5f7fb; }
-.summary-card, .panel-card, .analysis-metric-card, .analysis-balance-card, .loan-total-card {
+.summary-card, .panel-card, .loan-total-card {
   border-color: #e8edf5;
   border-radius: 16px;
   box-shadow: 0 5px 18px rgba(38, 61, 105, .035);
 }
-.summary-balance, .analysis-balance-card {
+.summary-balance {
   background: linear-gradient(135deg, #2563eb, #3978f6);
   border: 0;
 }
@@ -733,18 +718,6 @@ button { color: inherit; }
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
   outline: 0;
 }
-.analysis-account-card { border-color: #e8edf5; box-shadow: 0 4px 15px rgba(38, 61, 105, .035); }
-.analysis-account-card:hover, .analysis-account-card.is-selected {
-  background: #f6f9ff;
-  border-color: #8fb0fa;
-}
-.analysis-account-card.is-selected { box-shadow: 0 0 0 2px rgba(37, 99, 235, .08); }
-.analysis-metric-icon.count-icon { background: #eff6ff; color: #2563eb; }
-.analysis-metrics .analysis-metric-label { color: #8290a5; }
-.analysis-balance-card .analysis-metric-label,
-.analysis-balance-card small { color: rgba(255,255,255,.76); }
-.analysis-balance-card .analysis-balance-positive,
-.analysis-balance-card .analysis-balance-negative { color: #fff; }
 .analysis-content-grid .panel-card { min-width: 0; }
 .analysis-category .progress-track span { background: #10b981; }
 .categories-intro { background: linear-gradient(110deg, #eff6ff, #f8faff); border: 1px solid #e6edfc; border-radius: 16px; padding: 22px 25px; }
@@ -791,7 +764,6 @@ button { color: inherit; }
 .no-categories > span { color: #2563eb; }
 .loader { border-color: #e8edf5; border-top-color: #2563eb; }
 .inline-success { background: #ecfdf5; color: #047857; }
-.analysis-metric-card .amount-positive { color: #059669; }
 .budgets-layout, .loans-layout, .account-page-grid, .categories-layout, .transaction-layout { gap: 18px; }
 .budget-summary, .account-total-card, .loan-total-card { border-color: #e8edf5; }
 .budget-summary strong { color: #2563eb; }

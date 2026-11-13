@@ -41,7 +41,7 @@ const requireUserId = () => {
   return activeUserId;
 };
 
-export const setActiveUser = (user) => {
+const setActiveUser = (user) => {
   activeUserId = user?.id || null;
 };
 

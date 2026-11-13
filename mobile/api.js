@@ -366,16 +366,6 @@ export const sincronizarPendientes = async (token) => {
   }
 };
 
-export const verificarConexion = async () => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/`);
-    return respuesta.data.mensaje;
-  } catch (error) {
-    console.error("Error de red:", error.message);
-    return "Desconectado del Servidor";
-  }
-};
-
 export const loginConGoogleApi = async (idToken) => {
   try {
     const respuesta = await axios.post(`${API_URL}/api/auth/google`, { idToken }, {
@@ -432,90 +422,6 @@ export const iniciarSesion = async (credenciales) => {
   }
 };
 
-const guardarMovimientoRemotoLegacy = async (datosMovimiento, token) => {
-  try {
-    const respuesta = await axios.post(
-      `${API_URL}/api/movimientos`, 
-      datosMovimiento,
-      { 
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        } 
-      }
-    );
-    return { exito: true, data: respuesta.data };
-  } catch (error) {
-    console.error("Error al guardar movimiento real:", error.response?.data || error.message);
-    return { 
-      exito: false, 
-      mensaje: error.response?.data?.error || "Error al guardar el movimiento en el servidor." 
-    };
-  }
-};
-
-const obtenerMovimientosRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/movimientos`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, movimientos: respuesta.data.movimientos };
-  } catch (error) {
-    console.error("Error al consultar movimientos:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar los movimientos." };
-  }
-};
-
-const actualizarMovimientoRemotoLegacy = async (id, datosMovimiento, token) => {
-  try {
-    const respuesta = await axios.put(`${API_URL}/api/movimientos/${id}`, datosMovimiento, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      }
-    });
-    return { exito: true, movimiento: respuesta.data.movimiento };
-  } catch (error) {
-    console.error("Error al actualizar movimiento:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudo actualizar el movimiento." };
-  }
-};
-
-const eliminarMovimientoRemotoLegacy = async (id, token) => {
-  try {
-    const respuesta = await axios.delete(`${API_URL}/api/movimientos/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, mensaje: respuesta.data.mensaje };
-  } catch (error) {
-    console.error("Error al eliminar movimiento:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudo eliminar el movimiento." };
-  }
-};
-
-const obtenerDashboardRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/movimientos/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, datos: respuesta.data };
-  } catch (error) {
-    console.error("Error al consultar Dashboard:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudo actualizar el balance." };
-  }
-};
-
-const obtenerPresupuestosRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/presupuestos`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, presupuestos: respuesta.data.presupuestos };
-  } catch (error) {
-    return { exito: false, mensaje: "No se pudieron obtener los presupuestos." };
-  }
-};
-
 export const guardarPresupuesto = async (datos, token) => {
   try {
     const respuesta = await axios.post(`${API_URL}/api/presupuestos`, datos, {
@@ -527,18 +433,6 @@ export const guardarPresupuesto = async (datos, token) => {
     return { exito: true, presupuesto: respuesta.data.presupuesto };
   } catch (error) {
     return { exito: false, mensaje: error.response?.data?.error || "No se pudo guardar el presupuesto." };
-  }
-};
-
-const obtenerPrestamosRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/prestamos`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, datos: respuesta.data };
-  } catch (error) {
-    console.error("Error al obtener préstamos:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar los préstamos." };
   }
 };
 
@@ -626,18 +520,6 @@ export const eliminarPagoPrestamo = async (id, token) => {
   }
 };
 
-const obtenerMiCuentaRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/cuentas/mi-cuenta`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, datos: respuesta.data.cuenta };
-  } catch (error) {
-    console.error("Error al consultar cuenta:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudo obtener la información de la cuenta." };
-  }
-};
-
 export const invitarPareja = async (emailPareja, token) => {
   try {
     const respuesta = await axios.post(`${API_URL}/api/cuentas/invitar`, { emailPareja }, {
@@ -650,18 +532,6 @@ export const invitarPareja = async (emailPareja, token) => {
   } catch (error) {
     console.error("Error al invitar pareja:", error.response?.data || error.message);
     return { exito: false, mensaje: error.response?.data?.error || "Error al enviar la invitación." };
-  }
-};
-
-const obtenerCuentasFinancierasRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, ...respuesta.data };
-  } catch (error) {
-    console.error("Error al consultar cuentas financieras:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar las cuentas." };
   }
 };
 
@@ -718,18 +588,6 @@ export const ajustarSaldoCuentaFinanciera = async (id, saldoActual, token) => {
   }
 };
 
-const obtenerTransferenciasRemotoLegacy = async (token) => {
-  try {
-    const respuesta = await axios.get(`${API_URL}/api/cuentas/financieras/transferencias`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, transferencias: respuesta.data.transferencias };
-  } catch (error) {
-    console.error("Error al consultar transferencias:", error.response?.data || error.message);
-    return { exito: false, mensaje: error.response?.data?.error || "No se pudieron cargar las transferencias." };
-  }
-};
-
 export const crearTransferencia = async (datos, token) => {
   try {
     if (
@@ -783,17 +641,6 @@ export const crearTransferencia = async (datos, token) => {
   }
 };
 
-const obtenerCategoriasRemotoLegacy = async (token) => {
-  try {
-    const res = await axios.get(`${API_URL}/api/categorias`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return { exito: true, categorias: res.data.categorias };
-  } catch (err) {
-    return { exito: false, mensaje: "Error al cargar categorías." };
-  }
-};
-
 export const crearCategoria = async (datos, token) => {
   try {
     const res = await axios.post(`${API_URL}/api/categorias`, datos, {
@@ -824,22 +671,6 @@ export const eliminarCategoria = async (id, token) => {
     return { exito: true, mensaje: res.data.mensaje };
   } catch (err) {
     return { exito: false, mensaje: err.response?.data?.error || "Error al eliminar la categoría." };
-  }
-};
-
-export const enviarColaSincronizacion = async (colaMutaciones, token) => {
-  try {
-    const respuesta = await axios.post(`${API_URL}/api/sync`, { mutaciones: colaMutaciones }, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      timeout: 15000 // Timeout extendido para lotes grandes
-    });
-    return { exito: true, resultados: respuesta.data.resultados };
-  } catch (error) {
-    console.error("Error al sincronizar mutaciones offline:", error.response?.data || error.message);
-    return { exito: false, mensaje: "No se pudo sincronizar la cola offline." };
   }
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, Alert, ActivityIndicator, RefreshControl 
@@ -12,7 +12,7 @@ export default function ParejaScreen({ token, onLogout }) {
   const [cuentaInfo, setCuentaInfo] = useState(null);
   const [emailPareja, setEmailPareja] = useState('');
 
-  const cargarCuenta = async () => {
+  const cargarCuenta = useCallback(async () => {
     setLoading(true);
     const res = await obtenerMiCuenta(token);
     if (res.exito) {
@@ -20,11 +20,11 @@ export default function ParejaScreen({ token, onLogout }) {
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [token]);
 
   useEffect(() => {
-    cargarCuenta();
-  }, [token]);
+    Promise.resolve().then(cargarCuenta);
+  }, [cargarCuenta]);
 
   const handleInvitar = async () => {
     if (!emailPareja) {
