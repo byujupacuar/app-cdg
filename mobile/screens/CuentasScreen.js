@@ -40,7 +40,6 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
   const [cuentas, setCuentas] = useState([]);
   const [transferencias, setTransferencias] = useState([]);
   const [totalDisponible, setTotalDisponible] = useState(0);
-  const [deudaTarjetas, setDeudaTarjetas] = useState(0);
   const [tipo, setTipo] = useState('EFECTIVO');
   const [tipoPersonalizado, setTipoPersonalizado] = useState('');
   const [bancoVinculadoId, setBancoVinculadoId] = useState('');
@@ -59,117 +58,163 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
   const [guardando, setGuardando] = useState(false);
 
   const cargarDatos = useCallback(async () => {
-    const [resumen, historial] = await Promise.all([
-      obtenerCuentasFinancieras(token),
-      obtenerTransferencias(token)
-    ]);
-    if (!resumen.exito) {
-      Alert.alert('Error', resumen.mensaje || 'No se pudieron cargar las cuentas.');
-      return;
+    try {
+      const [resumenResponse, historialResponse] = await Promise.all([
+        obtenerCuentasFinancieras(token),
+        obtenerTransferencias(token)
+      ]);
+      const resumen = resumenResponse || {};
+      const historial = historialResponse || {};
+
+      if (!resumen.exito) {
+        Alert.alert('Error', resumen.mensaje || 'No se pudieron cargar las cuentas.');
+        return;
+      }
+
+      setCuentas(resumen.cuentas || []);
+      setTotalDisponible(resumen.totalDisponible || 0);
+
+      if (!historial.exito) {
+        Alert.alert('Error', historial.mensaje || 'No se pudieron cargar las transferencias.');
+      } else {
+        setTransferencias(historial.transferencias || []);
+      }
+
+      setBancoVinculadoId(resumen.cuentas?.find((cuenta) => cuenta.type === 'BANCO')?.id || '');
+      const transferibles = (resumen.cuentas || []).filter((cuenta) => cuenta.type !== 'DEBITO');
+      setOrigen(transferibles[0]?.id || '');
+      setDestino(transferibles[1]?.id || '');
+    } catch (error) {
+      console.error('Error al cargar cuentas y transferencias:', error);
+      Alert.alert('Error', 'No se pudieron cargar tus cuentas. Intenta nuevamente.');
     }
-    setCuentas(resumen.cuentas || []);
-    setTotalDisponible(resumen.totalDisponible || 0);
-    setDeudaTarjetas(resumen.deudaTarjetas || 0);
-    if (!historial.exito) {
-      Alert.alert('Error', historial.mensaje || 'No se pudieron cargar las transferencias.');
-    } else {
-      setTransferencias(historial.transferencias || []);
-    }
-    setBancoVinculadoId(resumen.cuentas?.find((cuenta) => cuenta.type === 'BANCO')?.id || '');
-    const transferibles = (resumen.cuentas || []).filter((cuenta) => cuenta.type !== 'DEBITO');
-    setOrigen(transferibles[0]?.id || '');
-    setDestino(transferibles[1]?.id || '');
   }, [token]);
 
   useFocusEffect(
     useCallback(() => {
       let activa = true;
       setCargando(true);
-      cargarDatos().finally(() => {
-        if (activa) setCargando(false);
-      });
+
+      const cargarPantalla = async () => {
+        try {
+          await cargarDatos();
+        } catch (error) {
+          console.error('Error al refrescar la pantalla de cuentas:', error);
+        } finally {
+          if (activa) setCargando(false);
+        }
+      };
+
+      cargarPantalla();
       return () => { activa = false; };
     }, [cargarDatos])
   );
 
   const handleCrearCuenta = async () => {
-    const tipoCuenta = tipo === 'OTRO' ? tipoPersonalizado.trim() : tipo;
-    if (!nombre.trim() || !tipoCuenta || !Number.isFinite(Number(saldoInicial)) || Number(saldoInicial) < 0) {
-      Alert.alert('Datos inválidos', 'Ingresa el nombre, tipo y un saldo inicial válido.');
-      return;
+    try {
+      const tipoCuenta = tipo === 'OTRO' ? tipoPersonalizado.trim() : tipo;
+      if (!nombre.trim() || !tipoCuenta || !Number.isFinite(Number(saldoInicial)) || Number(saldoInicial) < 0) {
+        Alert.alert('Datos inválidos', 'Ingresa el nombre, tipo y un saldo inicial válido.');
+        return;
+      }
+      if (tipo === 'DEBITO' && !bancoVinculadoId) {
+        Alert.alert('Cuenta bancaria requerida', 'Añade primero una cuenta bancaria para vincular la tarjeta de débito.');
+        return;
+      }
+
+      setGuardando(true);
+      const res = await crearCuentaFinanciera({
+        name: nombre.trim(),
+        type: tipoCuenta,
+        initialBalance: tipo === 'DEBITO' ? 0 : Number(saldoInicial),
+        ...(tipo === 'DEBITO' && { linkedFinancialAccountId: bancoVinculadoId })
+      }, token);
+
+      if (!res.exito) {
+        Alert.alert('Error', res.mensaje);
+        return;
+      }
+
+      setNombre('');
+      setSaldoInicial('0');
+      setTipoPersonalizado('');
+      Alert.alert('Cuenta agregada', 'Ya puedes asociarla a tus movimientos.');
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al crear la cuenta:', error);
+      Alert.alert('Error', 'No se pudo guardar la cuenta. Intenta de nuevo.');
+    } finally {
+      setGuardando(false);
     }
-    if (tipo === 'DEBITO' && !bancoVinculadoId) {
-      Alert.alert('Cuenta bancaria requerida', 'Añade primero una cuenta bancaria para vincular la tarjeta de débito.');
-      return;
-    }
-    setGuardando(true);
-    const res = await crearCuentaFinanciera({
-      name: nombre.trim(),
-      type: tipoCuenta,
-      initialBalance: tipo === 'DEBITO' ? 0 : Number(saldoInicial),
-      ...(tipo === 'DEBITO' && { linkedFinancialAccountId: bancoVinculadoId })
-    }, token);
-    setGuardando(false);
-    if (!res.exito) {
-      Alert.alert('Error', res.mensaje);
-      return;
-    }
-    setNombre('');
-    setSaldoInicial('0');
-    setTipoPersonalizado('');
-    Alert.alert('Cuenta agregada', 'Ya puedes asociarla a tus movimientos.');
-    await cargarDatos();
   };
 
   const handleTransferencia = async () => {
-    if (
-      !origen
-      || !destino
-      || origen === destino
-      || !Number.isFinite(Number(montoTransferencia))
-      || Number(montoTransferencia) <= 0
-    ) {
-      Alert.alert('Datos inválidos', 'Elige dos cuentas distintas e ingresa un monto mayor a cero.');
-      return;
+    try {
+      if (
+        !origen
+        || !destino
+        || origen === destino
+        || !Number.isFinite(Number(montoTransferencia))
+        || Number(montoTransferencia) <= 0
+      ) {
+        Alert.alert('Datos inválidos', 'Elige dos cuentas distintas e ingresa un monto mayor a cero.');
+        return;
+      }
+
+      setGuardando(true);
+      const res = await crearTransferencia({
+        fromFinancialAccountId: origen,
+        toFinancialAccountId: destino,
+        amount: Number(montoTransferencia),
+        description: detalleTransferencia.trim()
+      }, token);
+
+      if (!res.exito) {
+        Alert.alert('Error', res.mensaje);
+        return;
+      }
+
+      setMontoTransferencia('');
+      setDetalleTransferencia('');
+      Alert.alert(
+        res.pendiente ? 'Transferencia guardada offline' : 'Transferencia registrada',
+        res.pendiente
+          ? 'Los saldos se actualizaron en este dispositivo. Se sincronizará al recuperar la conexión.'
+          : 'Se actualizaron los saldos sin cambiar los ingresos o gastos.'
+      );
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al registrar la transferencia:', error);
+      Alert.alert('Error', 'No se pudo registrar la transferencia. Intenta de nuevo.');
+    } finally {
+      setGuardando(false);
     }
-    setGuardando(true);
-    const res = await crearTransferencia({
-      fromFinancialAccountId: origen,
-      toFinancialAccountId: destino,
-      amount: Number(montoTransferencia),
-      description: detalleTransferencia.trim()
-    }, token);
-    setGuardando(false);
-    if (!res.exito) {
-      Alert.alert('Error', res.mensaje);
-      return;
-    }
-    setMontoTransferencia('');
-    setDetalleTransferencia('');
-    Alert.alert(
-      res.pendiente ? 'Transferencia guardada offline' : 'Transferencia registrada',
-      res.pendiente
-        ? 'Los saldos se actualizaron en este dispositivo. Se sincronizará al recuperar la conexión.'
-        : 'Se actualizaron los saldos sin cambiar los ingresos o gastos.'
-    );
-    await cargarDatos();
   };
 
   const handleAjustarSaldo = async (cuenta) => {
-    if (!Number.isFinite(Number(saldoAjustado)) || Number(saldoAjustado) < 0) {
-      Alert.alert('Saldo inválido', 'Ingresa un monto válido igual o mayor a cero.');
-      return;
+    try {
+      if (!Number.isFinite(Number(saldoAjustado)) || Number(saldoAjustado) < 0) {
+        Alert.alert('Saldo inválido', 'Ingresa un monto válido igual o mayor a cero.');
+        return;
+      }
+
+      setGuardando(true);
+      const res = await ajustarSaldoCuentaFinanciera(cuenta.id, Number(saldoAjustado), token);
+
+      if (!res.exito) {
+        Alert.alert('Error', res.mensaje);
+        return;
+      }
+
+      setCuentaAjustando('');
+      setSaldoAjustado('');
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al ajustar el saldo:', error);
+      Alert.alert('Error', 'No se pudo ajustar el saldo. Intenta nuevamente.');
+    } finally {
+      setGuardando(false);
     }
-    setGuardando(true);
-    const res = await ajustarSaldoCuentaFinanciera(cuenta.id, Number(saldoAjustado), token);
-    setGuardando(false);
-    if (!res.exito) {
-      Alert.alert('Error', res.mensaje);
-      return;
-    }
-    setCuentaAjustando('');
-    setSaldoAjustado('');
-    await cargarDatos();
   };
 
   const iniciarEdicion = (cuenta) => {
@@ -180,23 +225,32 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
   };
 
   const handleActualizarCuenta = async (cuenta) => {
-    if (!nombreEditado.trim()) {
-      Alert.alert('Nombre requerido', 'Ingresa un nombre para la cuenta.');
-      return;
+    try {
+      if (!nombreEditado.trim()) {
+        Alert.alert('Nombre requerido', 'Ingresa un nombre para la cuenta.');
+        return;
+      }
+
+      setGuardando(true);
+      const res = await actualizarCuentaFinanciera(
+        cuenta.id,
+        { name: nombreEditado.trim(), type: tipoEditado },
+        token
+      );
+
+      if (!res.exito) {
+        Alert.alert('No se pudo actualizar', res.mensaje);
+        return;
+      }
+
+      setCuentaEditando('');
+      await cargarDatos();
+    } catch (error) {
+      console.error('Error al actualizar la cuenta:', error);
+      Alert.alert('Error', 'No se pudo actualizar la cuenta. Intenta nuevamente.');
+    } finally {
+      setGuardando(false);
     }
-    setGuardando(true);
-    const res = await actualizarCuentaFinanciera(
-      cuenta.id,
-      { name: nombreEditado.trim(), type: tipoEditado },
-      token
-    );
-    setGuardando(false);
-    if (!res.exito) {
-      Alert.alert('No se pudo actualizar', res.mensaje);
-      return;
-    }
-    setCuentaEditando('');
-    await cargarDatos();
   };
 
   const confirmarEliminacionCuenta = (cuenta) => {
@@ -209,15 +263,23 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
-            setGuardando(true);
-            const res = await eliminarCuentaFinanciera(cuenta.id, token);
-            setGuardando(false);
-            if (!res.exito) {
-              Alert.alert('No se pudo eliminar', res.mensaje);
-              return;
+            try {
+              setGuardando(true);
+              const res = await eliminarCuentaFinanciera(cuenta.id, token);
+
+              if (!res.exito) {
+                Alert.alert('No se pudo eliminar', res.mensaje);
+                return;
+              }
+
+              if (cuentaEditando === cuenta.id) setCuentaEditando('');
+              await cargarDatos();
+            } catch (error) {
+              console.error('Error al eliminar la cuenta:', error);
+              Alert.alert('Error', 'No se pudo eliminar la cuenta. Intenta nuevamente.');
+            } finally {
+              setGuardando(false);
             }
-            if (cuentaEditando === cuenta.id) setCuentaEditando('');
-            await cargarDatos();
           }
         }
       ]
@@ -249,24 +311,17 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
       <Text style={styles.titulo}>Cuentas</Text>
       <Text style={styles.intro}>Consulta tu patrimonio y administra tus fuentes de dinero.</Text>
 
-      <View style={styles.resumenRow}>
-        <View style={styles.resumenCard}>
-          <Text style={styles.resumenLabel}>Liquidez</Text>
-          <Text style={styles.resumenMonto}>{moneda(totalDisponible)}</Text>
-        </View>
-        <View style={styles.resumenCard}>
-          <Text style={styles.resumenLabel}>Deuda en tarjetas</Text>
-          <Text style={[styles.resumenMonto, styles.deuda]}>{moneda(deudaTarjetas)}</Text>
-        </View>
-      </View>
       <View style={styles.netWorthCard}>
         <View style={styles.netWorthCopy}>
           <Text style={styles.netWorthLabel}>Patrimonio neto</Text>
-          <Text style={styles.netWorthAmount}>{moneda(totalDisponible - deudaTarjetas)}</Text>
+          <Text style={styles.netWorthAmount}>{moneda(totalDisponible)}</Text>
+        </View>
+        <View style={styles.netWorthMeta}>
+          <Text style={styles.netWorthSecondary}>Liquidez</Text>
+          <Text style={styles.netWorthSecondaryValue}>{moneda(totalDisponible)}</Text>
         </View>
         <Text style={styles.netWorthIcon}>▣</Text>
       </View>
-
       <View style={styles.card}>
         <Text style={styles.tituloSeccion}>Mis cuentas</Text>
         {cargando ? (
@@ -275,34 +330,38 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
           <Text style={styles.textoAyuda}>Todavía no has añadido ninguna cuenta.</Text>
         ) : cuentas.map((cuenta) => (
           <View key={cuenta.id}>
-            <View style={styles.filaCuenta}>
-              <View style={styles.infoCuenta}>
-                <Text style={styles.nombreCuenta}>{cuenta.name}</Text>
-                <Text style={styles.tipoCuenta}>
-                  {cuenta.esDebitoVinculado ? `Débito · vinculada a ${cuenta.cuentaVinculada}` : etiquetaTipo(cuenta.type)}
+            <View style={styles.cuentaItem}>
+              <View style={styles.encabezadoCuenta}>
+                <View style={styles.infoCuenta}>
+                  <Text style={styles.nombreCuenta}>{cuenta.name}</Text>
+                  <Text style={styles.tipoCuenta}>
+                    {cuenta.esDebitoVinculado ? `Débito · vinculada a ${cuenta.cuentaVinculada}` : etiquetaTipo(cuenta.type)}
+                  </Text>
+                </View>
+                <Text style={[styles.saldoCuenta, cuenta.esCredito && styles.deuda]}>
+                  {moneda(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
+                  {cuenta.esCredito ? ' deuda' : ''}
                 </Text>
               </View>
-              <Text style={[styles.saldoCuenta, cuenta.esCredito && styles.deuda]}>
-                {moneda(cuenta.esCredito ? cuenta.deuda : cuenta.saldo)}
-                {cuenta.esCredito ? ' deuda' : ''}
-              </Text>
-              {!cuenta.esDebitoVinculado && (
-                <TouchableOpacity
-                  style={styles.ajustarBoton}
-                  onPress={() => {
-                    setCuentaAjustando(cuenta.id);
-                    setSaldoAjustado(String(cuenta.esCredito ? cuenta.deuda : cuenta.saldo));
-                  }}
-                >
-                  <Text style={styles.ajustarTexto}>Ajustar</Text>
+              <View style={styles.accionesCuenta}>
+                {!cuenta.esDebitoVinculado && (
+                  <TouchableOpacity
+                    style={styles.ajustarBoton}
+                    onPress={() => {
+                      setCuentaAjustando(cuenta.id);
+                      setSaldoAjustado(String(cuenta.esCredito ? cuenta.deuda : cuenta.saldo));
+                    }}
+                  >
+                    <Text style={styles.ajustarTexto}>Ajustar</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.ajustarBoton} onPress={() => iniciarEdicion(cuenta)}>
+                  <Text style={styles.ajustarTexto}>Editar</Text>
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.ajustarBoton} onPress={() => iniciarEdicion(cuenta)}>
-                <Text style={styles.ajustarTexto}>Editar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.ajustarBoton} onPress={() => confirmarEliminacionCuenta(cuenta)}>
-                <Text style={styles.eliminarTexto}>Eliminar</Text>
-              </TouchableOpacity>
+                <TouchableOpacity style={styles.ajustarBoton} onPress={() => confirmarEliminacionCuenta(cuenta)}>
+                  <Text style={styles.eliminarTexto}>Eliminar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             {cuentaEditando === cuenta.id && (
               <View style={styles.ajusteSaldo}>
@@ -439,7 +498,7 @@ export default function CuentasScreen({ token, currencyCode = 'USD' }) {
                   : transferencia.description || new Date(transferencia.date).toLocaleDateString()}
               </Text>
             </View>
-            <Text style={styles.saldoCuenta}>{moneda(transferencia.amount)}</Text>
+            <Text style={styles.saldoTransferencia}>{moneda(transferencia.amount)}</Text>
           </View>
         ))}
       </View>
@@ -453,36 +512,43 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
   content: { padding: 18, paddingTop: 22, paddingBottom: 32 },
   titulo: { color: colors.ink, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  intro: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 5, marginBottom: 15 },
+  intro: { color: colors.ink, fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 15 },
   resumenRow: { flexDirection: 'row', gap: 9, marginBottom: 12 },
   resumenCard: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 15, flex: 1, padding: 14 },
-  resumenLabel: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  resumenLabel: { color: '#334155', fontSize: 12, fontWeight: '600' },
   resumenMonto: { color: colors.blue700, fontSize: 19, fontWeight: '800', marginTop: 5 },
   netWorthCard: { backgroundColor: colors.blue700, borderRadius: 17, padding: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   netWorthCopy: { flex: 1 },
   netWorthLabel: { color: '#dbeafe', fontSize: 12, fontWeight: '600' },
   netWorthAmount: { color: colors.white, fontSize: 26, fontWeight: '800', marginTop: 5 },
-  netWorthIcon: { color: 'rgba(255,255,255,0.8)', fontSize: 31 },
+  netWorthMeta: { alignItems: 'flex-end', marginLeft: 12 },
+  netWorthSecondary: { color: '#dbeafe', fontSize: 11, fontWeight: '600' },
+  netWorthSecondaryValue: { color: colors.white, fontSize: 14, fontWeight: '700', marginTop: 2 },
+  netWorthIcon: { color: 'rgba(255,255,255,0.8)', fontSize: 31, marginLeft: 10 },
   deuda: { color: colors.red },
   card: { backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 17, marginBottom: 12, padding: 16 },
-  tituloSeccion: { color: colors.ink, fontSize: 17, fontWeight: '800', marginBottom: 10 },
+  tituloSeccion: { color: colors.ink, fontSize: 18, fontWeight: '800', marginBottom: 10 },
   filaCuenta: { alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingVertical: 10 },
+  cuentaItem: { backgroundColor: colors.canvas, borderColor: colors.line, borderRadius: 12, borderWidth: 1, marginBottom: 9, padding: 12 },
+  encabezadoCuenta: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
+  accionesCuenta: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start', marginTop: 10 },
   infoCuenta: { flex: 1 },
-  nombreCuenta: { color: colors.ink, fontSize: 13, fontWeight: '700' },
-  tipoCuenta: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  saldoCuenta: { color: colors.blue700, fontSize: 13, fontWeight: '700' },
-  ajustarBoton: { marginLeft: 8, padding: 5 },
+  nombreCuenta: { color: colors.ink, flexShrink: 1, fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  tipoCuenta: { color: '#465468', fontSize: 12, lineHeight: 18, marginTop: 3 },
+  saldoCuenta: { color: colors.blue700, flexShrink: 1, fontSize: 14, fontWeight: '700', maxWidth: '48%', textAlign: 'right' },
+  saldoTransferencia: { color: colors.blue700, fontSize: 14, fontWeight: '700' },
+  ajustarBoton: { backgroundColor: colors.white, borderColor: colors.line, borderRadius: 8, borderWidth: 1, minHeight: 34, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 6 },
   ajustarTexto: { color: colors.blue700, fontSize: 12, fontWeight: '700' },
   eliminarTexto: { color: colors.red, fontSize: 12, fontWeight: '700' },
   ajusteSaldo: { borderBottomColor: colors.line, borderBottomWidth: 1, paddingBottom: 11 },
   botonesAjuste: { alignItems: 'center', flexDirection: 'row', gap: 14 },
-  label: { color: colors.ink, fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 7 },
+  label: { color: colors.ink, fontSize: 13, fontWeight: '700', marginBottom: 6, marginTop: 7 },
   input: { backgroundColor: '#fbfcfb', borderColor: colors.line, borderRadius: 9, borderWidth: 1, color: colors.ink, fontSize: 15, marginBottom: 7, paddingHorizontal: 11, paddingVertical: 10 },
-  textoAyuda: { color: colors.muted, fontSize: 12, lineHeight: 17, marginBottom: 8 },
+  textoAyuda: { color: '#475569', fontSize: 12, lineHeight: 18, marginBottom: 8 },
   opcionesCuentas: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 5 },
   opcionCuenta: { backgroundColor: colors.canvas, borderColor: colors.line, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
   opcionCuentaActiva: { backgroundColor: colors.blue50, borderColor: colors.blue700 },
-  opcionCuentaTexto: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  opcionCuentaTexto: { color: '#334155', fontSize: 12, fontWeight: '600' },
   opcionCuentaTextoActivo: { color: colors.blue700 },
   boton: { alignItems: 'center', backgroundColor: colors.blue700, borderRadius: 11, marginTop: 7, padding: 12 },
   botonTexto: { color: colors.white, fontSize: 13, fontWeight: '700' }
