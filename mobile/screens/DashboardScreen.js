@@ -102,10 +102,6 @@ export default function DashboardScreen({ token, navigation, usuario, currencyCo
             <Text style={styles.currentBalanceLabel}>Patrimonio neto</Text>
             <Text style={styles.currentBalanceAmount}>{moneda(cuentas.patrimonioNeto)}</Text>
           </View>
-          <View style={styles.currentBalanceItem}>
-            <Text style={styles.currentBalanceLabel}>Deuda de tarjetas</Text>
-            <Text style={[styles.currentBalanceAmount, styles.currentDebtAmount]}>{moneda(cuentas.deudaTarjetas)}</Text>
-          </View>
         </View>
       </View>
 
@@ -235,7 +231,6 @@ const styles = StyleSheet.create({
   currentBalanceItem: { flex: 1 },
   currentBalanceLabel: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   currentBalanceAmount: { color: colors.ink, fontSize: 19, fontWeight: '800', marginTop: 5 },
-  currentDebtAmount: { color: colors.red },
   cardLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: '#dbeafe', fontSize: 15, fontWeight: '600' },
   monthTag: { color: colors.white, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },

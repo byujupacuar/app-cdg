@@ -35,6 +35,7 @@ describe('Dashboard', () => {
     expect(screen.getByText('Saldo del mes').closest('article')).toHaveTextContent('750');
     expect(screen.getByText(/Saldo inicial:/)).toHaveTextContent('550');
     expect(screen.getByText('Patrimonio neto').closest('div')).toHaveTextContent('550');
+    expect(screen.queryByText('Deuda de tarjetas')).not.toBeInTheDocument();
     const flujoSemanal = await screen.findByRole('region', { name: 'Flujo de efectivo de los últimos 7 días' });
     await within(flujoSemanal).findByText('Ingresos');
 

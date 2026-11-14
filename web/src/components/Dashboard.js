@@ -141,7 +141,6 @@ export default function Dashboard({ refreshKey, onNavigate, userName, currencyCo
             <div className="account-overview-totals">
               <div><span>Disponible</span><strong>{currency(resumenCuentas.totalDisponible)}</strong></div>
               <div><span>Patrimonio neto</span><strong>{currency(resumenCuentas.patrimonioNeto)}</strong></div>
-              <div><span>Deuda de tarjetas</span><strong className="amount-negative">{currency(resumenCuentas.deudaTarjetas)}</strong></div>
             </div>
             <div className="account-overview-list">
               {cuentas.map((cuenta) => (
