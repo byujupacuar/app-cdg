@@ -60,21 +60,29 @@ describe('Analisis', () => {
     });
   });
 
-  test('shows period comparison and derives the savings rate from API totals', async () => {
+  test('shows period metrics, a time trend, and expense category distribution', async () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     obtenerDashboard.mockResolvedValue({
       exito: true,
       resumen: { balanceTotal: 30, totalIngresos: 120, totalGastos: 90 },
       resumenCuentas: { cuentas: [], totalDisponible: 600, deudaTarjetas: 50, patrimonioNeto: 550 },
-      ultimosMovimientos: [],
-      gastosPorCategoria: []
+      ultimosMovimientos: [
+        { id: 'income', amount: 120, type: 'INGRESO', date: `${today}T12:00:00.000Z` },
+        { id: 'expense', amount: 90, type: 'GASTO', date: `${today}T13:00:00.000Z` }
+      ],
+      gastosPorCategoria: [
+        { id: 'food', nombre: 'Alimentación', icono: '🍎', monto: 90, porcentaje: 100 }
+      ]
     });
 
     render(<Analisis />);
 
-    expect(await screen.findByRole('heading', { name: 'Ingresos y gastos' })).toBeInTheDocument();
-    expect(screen.getByText('Tasa de ahorro: 25.0%')).toBeInTheDocument();
-    expect(screen.getByText('Superávit').closest('.analysis-savings-rate')).toHaveTextContent('30');
+    expect(await screen.findByRole('heading', { name: 'Ingresos y gastos en el tiempo' })).toBeInTheDocument();
+    expect(screen.getByText('Balance neto').nextElementSibling).toHaveTextContent('30');
+    expect(screen.getByRole('img', { name: /Gráfico de ingresos y gastos por intervalo/ })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Distribución de gastos por categoría/ })).toBeInTheDocument();
+    expect(screen.getByText(/Alimentación/)).toBeInTheDocument();
     expect(screen.queryByText('Patrimonio neto actual')).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /Ingresos.*gastos/ })).toBeInTheDocument();
   });
 });

@@ -169,7 +169,7 @@ export default function App() {
     <SafeAreaProvider>
       <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" backgroundColor={colors.white} />
-        <View style={{ flex: 1 }}>
+        <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.white }}>
         <SafeAreaView edges={['top']} style={{ backgroundColor: colors.white }}>
         {conexionDisponible === false && (
           <Text style={{
@@ -350,7 +350,7 @@ export default function App() {
         >
           <Text style={{ color: colors.white, fontSize: 32, lineHeight: 36, fontWeight: '400' }}>+</Text>
         </TouchableOpacity>
-      </View>
+        </SafeAreaView>
         <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(23,32,51,0.28)', justifyContent: 'flex-end' }}>
           <TouchableOpacity activeOpacity={1} onPress={() => setMenuVisible(false)} style={{ flex: 1 }} />

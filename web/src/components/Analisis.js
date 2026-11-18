@@ -36,6 +36,14 @@ const fechaLegible = (value) => {
     .format(new Date(`${value}T12:00:00`));
 };
 
+const fechaCorta = (value) => new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC'
+}).format(new Date(`${value}T00:00:00.000Z`));
+
+const coloresGrafico = ['#2563eb', '#10b981', '#f59e0b', '#ef6b6b', '#8b5cf6', '#06b6d4'];
+
 export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' }) {
   const currency = (value) => formatCurrency(value, currencyCode);
   const [desde, setDesde] = useState(inicial.fechaInicio);
@@ -149,16 +157,60 @@ export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' 
   const totalMovimientos = Number(resumen.totalMovimientos) || 0;
   const cuentas = datos?.resumenCuentas?.cuentas || [];
   const cuentaSeleccionada = cuentas.find((cuenta) => cuenta.id === cuentaId);
-  const escalaComparacion = Math.max(ingresos, gastos, 1);
-  const tasaAhorro = ingresos > 0 ? (balance / ingresos) * 100 : null;
+  const movimientosGasto = movimientos.filter((movement) => movement.type === 'GASTO');
+  const promedioGasto = movimientosGasto.length ? gastos / movimientosGasto.length : 0;
+  const inicioUTC = Date.parse(`${rango.fechaInicio}T00:00:00.000Z`);
+  const finUTC = Date.parse(`${rango.fechaFin}T00:00:00.000Z`);
+  const diasPeriodo = Math.max(1, Math.floor((finUTC - inicioUTC) / 86400000) + 1);
+  const cantidadIntervalos = Math.min(12, diasPeriodo);
+  const serie = Array.from({ length: cantidadIntervalos }, (_, index) => {
+    const inicioDia = Math.floor(index * diasPeriodo / cantidadIntervalos);
+    return {
+      label: fechaCorta(new Date(inicioUTC + inicioDia * 86400000).toISOString().slice(0, 10)),
+      ingresos: 0,
+      gastos: 0
+    };
+  });
+  movimientos.forEach((movement) => {
+    const fechaUTC = Date.parse(`${String(movement.date).slice(0, 10)}T00:00:00.000Z`);
+    const diasDesdeInicio = Math.floor((fechaUTC - inicioUTC) / 86400000);
+    if (diasDesdeInicio < 0 || diasDesdeInicio >= diasPeriodo) return;
+    const index = Math.min(cantidadIntervalos - 1, Math.floor(diasDesdeInicio * cantidadIntervalos / diasPeriodo));
+    if (movement.type === 'INGRESO') serie[index].ingresos += Number(movement.amount) || 0;
+    if (movement.type === 'GASTO') serie[index].gastos += Number(movement.amount) || 0;
+  });
+  const maxSerie = Math.max(1, ...serie.map((intervalo) => Math.max(intervalo.ingresos, intervalo.gastos)));
+  const categoriasVisibles = categorias.slice(0, 5).map((categoria, index) => ({
+    ...categoria,
+    color: coloresGrafico[index]
+  }));
+  const montoOtrasCategorias = categorias.slice(5).reduce((total, categoria) => total + (Number(categoria.monto) || 0), 0);
+  if (montoOtrasCategorias > 0) {
+    categoriasVisibles.push({
+      id: 'otras',
+      nombre: 'Otras categorías',
+      monto: montoOtrasCategorias,
+      porcentaje: gastos > 0 ? montoOtrasCategorias / gastos * 100 : 0,
+      color: coloresGrafico[5]
+    });
+  }
+  let inicioPorcentaje = 0;
+  const segmentos = categoriasVisibles.map((categoria) => {
+    const inicio = inicioPorcentaje;
+    inicioPorcentaje += gastos > 0 ? (Number(categoria.monto) || 0) / gastos * 100 : 0;
+    return `${categoria.color} ${inicio}% ${inicioPorcentaje}%`;
+  });
+  const fondoCategorias = segmentos.length
+    ? `conic-gradient(${segmentos.join(', ')})`
+    : 'conic-gradient(#edf1f6 0% 100%)';
 
   return (
     <div className="analysis-page">
       <section className="analysis-intro">
         <div>
-          <span className="panel-kicker">TUS FINANZAS, EN CONTEXTO</span>
-          <h2>Analiza cualquier período</h2>
-          <p>Compara ingresos y gastos en las fechas que elijas.</p>
+          <span className="panel-kicker">TABLERO FINANCIERO</span>
+          <h2>Explora tus tendencias</h2>
+          <p>Visualiza cómo se mueven tus ingresos y gastos en el período elegido.</p>
         </div>
         <span className="analysis-intro-icon" aria-hidden="true">⌁</span>
       </section>
@@ -274,65 +326,143 @@ export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' 
             </p>
           )}
 
+          <section className="analysis-metrics" aria-label="Indicadores del período">
+            <article className="analysis-metric-card">
+              <span>Ingresos</span>
+              <strong className="amount-positive">{currency(ingresos)}</strong>
+              <small>Total recibido</small>
+            </article>
+            <article className="analysis-metric-card">
+              <span>Gastos</span>
+              <strong className="amount-negative">{currency(gastos)}</strong>
+              <small>Total utilizado</small>
+            </article>
+            <article className="analysis-metric-card">
+              <span>Balance neto</span>
+              <strong className={balance >= 0 ? 'amount-positive' : 'amount-negative'}>{currency(balance)}</strong>
+              <small>Ingresos menos gastos</small>
+            </article>
+            <article className="analysis-metric-card">
+              <span>Actividad</span>
+              <strong>{totalMovimientos}</strong>
+              <small>{currency(promedioGasto)} promedio por gasto</small>
+            </article>
+          </section>
+
           <section className="analysis-content-grid">
-            <article className="panel-card analysis-comparison-panel">
+            <article className="panel-card analysis-trend-panel">
               <div className="panel-heading">
                 <div>
-                  <span className="panel-kicker">FLUJO DEL PERÍODO</span>
-                  <h2>Ingresos y gastos</h2>
+                  <span className="panel-kicker">EVOLUCIÓN DEL PERÍODO</span>
+                  <h2>Ingresos y gastos en el tiempo</h2>
                 </div>
-                <span className="analysis-savings-rate">
-                  <small>{balance >= 0 ? 'Superávit' : 'Balance neto'}</small>
-                  <strong className={balance >= 0 ? 'amount-positive' : 'amount-negative'}>{currency(balance)}</strong>
-                  {tasaAhorro !== null && <small>Tasa de ahorro: {tasaAhorro.toFixed(1)}%</small>}
-                </span>
+                <span className="analysis-chart-period">{fechaLegible(rango.fechaInicio)} – {fechaLegible(rango.fechaFin)}</span>
               </div>
-              <div className="analysis-comparison-rows" role="img" aria-label={`Ingresos ${currency(ingresos)} y gastos ${currency(gastos)} durante el período`}>
-                <div className="analysis-comparison-row">
-                  <div><span>Ingresos</span><strong className="amount-positive">{currency(ingresos)}</strong></div>
-                  <div className="analysis-comparison-track">
-                    <span className="analysis-comparison-fill income-fill" style={{ width: `${(ingresos / escalaComparacion) * 100}%` }} />
+              {movimientos.length === 0 ? (
+                <div className="panel-empty"><span>⌁</span><p>No hay actividad para graficar en este período.</p></div>
+              ) : (
+                <>
+                  <div className="analysis-trend-legend" aria-hidden="true">
+                    <span><i className="analysis-legend-income" /> Ingresos</span>
+                    <span><i className="analysis-legend-expense" /> Gastos</span>
                   </div>
-                </div>
-                <div className="analysis-comparison-row">
-                  <div><span>Gastos</span><strong className="amount-negative">{currency(gastos)}</strong></div>
-                  <div className="analysis-comparison-track">
-                    <span className="analysis-comparison-fill expense-fill" style={{ width: `${(gastos / escalaComparacion) * 100}%` }} />
+                  <div className="analysis-trend-scroll">
+                    <svg
+                      className="analysis-trend-chart"
+                      viewBox="0 0 760 280"
+                      role="img"
+                      aria-label={`Gráfico de ingresos y gastos por intervalo desde ${fechaLegible(rango.fechaInicio)} hasta ${fechaLegible(rango.fechaFin)}`}
+                    >
+                      {[0, 1, 2, 3].map((step) => {
+                        const y = 218 - step * 58;
+                        return (
+                          <g key={step}>
+                            <line x1="88" x2="748" y1={y} y2={y} className="analysis-grid-line" />
+                            <text x="78" y={y + 4} textAnchor="end" className="analysis-axis-label">
+                              {currency(maxSerie * step / 3)}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      {serie.map((intervalo, index) => {
+                        const groupWidth = 660 / serie.length;
+                        const barWidth = Math.min(18, groupWidth * 0.28);
+                        const center = 88 + groupWidth * (index + 0.5);
+                        const ingresoHeight = intervalo.ingresos / maxSerie * 174;
+                        const gastoHeight = intervalo.gastos / maxSerie * 174;
+                        return (
+                          <g key={`${intervalo.label}-${index}`}>
+                            <rect
+                              x={center - barWidth - 2}
+                              y={218 - ingresoHeight}
+                              width={barWidth}
+                              height={Math.max(0, ingresoHeight)}
+                              rx="4"
+                              className="analysis-bar-income"
+                            >
+                              <title>{`${intervalo.label}: ingresos ${currency(intervalo.ingresos)}`}</title>
+                            </rect>
+                            <rect
+                              x={center + 2}
+                              y={218 - gastoHeight}
+                              width={barWidth}
+                              height={Math.max(0, gastoHeight)}
+                              rx="4"
+                              className="analysis-bar-expense"
+                            >
+                              <title>{`${intervalo.label}: gastos ${currency(intervalo.gastos)}`}</title>
+                            </rect>
+                            <text x={center} y="246" textAnchor="middle" className="analysis-axis-label">
+                              {intervalo.label}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
                   </div>
-                </div>
-              </div>
-              <p className="analysis-chart-caption">Totales agregados del rango seleccionado</p>
+                  <p className="analysis-chart-caption">Cada grupo resume la actividad de ese tramo del período.</p>
+                </>
+              )}
             </article>
 
-            <article className="panel-card">
+            <article className="panel-card analysis-category-panel">
               <div className="panel-heading">
                 <div>
                   <span className="panel-kicker">DISTRIBUCIÓN</span>
-                  <h2>Gastos por categoría</h2>
+                  <h2>¿En qué gastaste?</h2>
                 </div>
                 <span className="panel-heading-icon">◔</span>
               </div>
               {categorias.length === 0 ? (
                 <div className="panel-empty"><span>◌</span><p>No hay gastos en este período.</p></div>
               ) : (
-                <div className="analysis-category-list">
-                  {categorias.map((category) => (
-                    <div className="analysis-category" key={category.id}>
-                      <div className="analysis-category-heading">
-                        <span>{category.icono || '◇'} {category.nombre}</span>
-                        <strong>{currency(category.monto)}</strong>
-                      </div>
-                      <div className="progress-track">
-                        <span style={{ width: `${Math.min(Number(category.porcentaje) || 0, 100)}%` }} />
-                      </div>
-                      <small>{(Number(category.porcentaje) || 0).toFixed(1)}% de los gastos</small>
+                <div className="analysis-category-content">
+                  <div className="analysis-donut-wrap">
+                    <div
+                      className="analysis-donut"
+                      role="img"
+                      aria-label={`Distribución de gastos por categoría. Total ${currency(gastos)}`}
+                      style={{ background: fondoCategorias }}
+                    >
+                      <div><strong>{currency(gastos)}</strong><small>Total de gastos</small></div>
                     </div>
-                  ))}
+                  </div>
+                  <div className="analysis-category-list">
+                    {categoriasVisibles.map((category) => (
+                      <div className="analysis-category" key={category.id}>
+                        <div className="analysis-category-heading">
+                          <span><i style={{ backgroundColor: category.color }} />{category.icono || '◇'} {category.nombre}</span>
+                          <strong>{currency(category.monto)}</strong>
+                        </div>
+                        <small>{(Number(category.porcentaje) || 0).toFixed(1)}% de los gastos</small>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </article>
 
-            <article className="panel-card">
+            <article className="panel-card analysis-activity-panel">
               <div className="panel-heading">
                 <div>
                   <span className="panel-kicker">ACTIVIDAD</span>

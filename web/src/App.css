@@ -268,10 +268,42 @@ button { color: inherit; }
 .analysis-category-list { display: grid; gap: 17px; }
 .analysis-category-heading { align-items: center; display: flex; font-size: 12px; justify-content: space-between; margin-bottom: 7px; }
 .analysis-category-heading > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-category-heading > span i { border-radius: 50%; display: inline-block; height: 8px; margin-right: 7px; vertical-align: 1px; width: 8px; }
 .analysis-category-heading strong { font-size: 12px; margin-left: 9px; white-space: nowrap; }
 .analysis-category small { color: #9aa39d; display: block; font-size: 12px; margin-top: 5px; }
 .period-result-count { align-items: center; background: var(--green-50); border-radius: 8px; color: var(--green-800); display: inline-flex; font-size: 12px; font-weight: 700; height: 30px; justify-content: center; min-width: 30px; padding: 0 8px; }
 .analysis-more-movements { border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; margin: 8px 0 0; padding-top: 10px; }
+.analysis-metrics { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 0 16px; }
+.analysis-metric-card { background: #fff; border: 1px solid #e8edf5; border-radius: 13px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 16px 18px; }
+.analysis-metric-card > span { color: #78869b; font-size: 12px; font-weight: 650; }
+.analysis-metric-card > strong { font-size: clamp(18px, 1.8vw, 25px); letter-spacing: -.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-metric-card > small { color: #9aa6b8; font-size: 11px; }
+.analysis-trend-panel { grid-column: 1 / -1; }
+.analysis-chart-period { color: #7b879a; font-size: 12px; }
+.analysis-trend-legend { display: flex; gap: 18px; margin: -4px 0 8px 72px; }
+.analysis-trend-legend > span { align-items: center; color: #6f7c91; display: inline-flex; font-size: 12px; gap: 7px; }
+.analysis-trend-legend i { border-radius: 3px; height: 9px; width: 9px; }
+.analysis-legend-income, .analysis-bar-income { fill: #10b981; background: #10b981; }
+.analysis-legend-expense, .analysis-bar-expense { fill: #ef6b6b; background: #ef6b6b; }
+.analysis-trend-scroll { overflow-x: auto; }
+.analysis-trend-chart { display: block; height: auto; min-width: 620px; overflow: visible; width: 100%; }
+.analysis-grid-line { stroke: #edf1f6; stroke-width: 1; }
+.analysis-axis-label { fill: #8b97a9; font-size: 10px; }
+.analysis-bar-income, .analysis-bar-expense { transition: opacity .15s ease; }
+.analysis-bar-income:hover, .analysis-bar-expense:hover { opacity: .7; }
+.analysis-chart-caption { color: #8793a5; font-size: 11px; margin: 3px 0 0; text-align: center; }
+.analysis-category-content { align-items: center; display: grid; gap: 18px; grid-template-columns: minmax(120px, .8fr) minmax(0, 1.2fr); }
+.analysis-donut-wrap { padding: 4px; }
+.analysis-donut { align-items: center; aspect-ratio: 1; border-radius: 50%; display: flex; justify-content: center; margin: auto; max-width: 190px; position: relative; width: 100%; }
+.analysis-donut::before { background: #fff; border-radius: 50%; content: ''; inset: 23%; position: absolute; }
+.analysis-donut > div { align-items: center; display: flex; flex-direction: column; max-width: 75%; position: relative; text-align: center; }
+.analysis-donut strong { color: var(--ink); font-size: clamp(13px, 1.4vw, 18px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+.analysis-donut small { color: #8a96a8; font-size: 10px; margin-top: 3px; }
+.analysis-category-list { gap: 13px; }
+.analysis-category-heading { margin-bottom: 3px; }
+.analysis-category-heading > span { min-width: 0; }
+.analysis-activity-panel { grid-column: auto; }
+.analysis-activity-panel .recent-item { min-height: 64px; }
 
 .categories-intro { background: linear-gradient(110deg, #edf5ee, #f5f7f2); border: 1px solid #e8eee7; border-radius: 15px; margin-bottom: 18px; min-height: 128px; padding: 24px 28px; }
 .category-counts { display: flex; gap: 10px; }
@@ -873,6 +905,10 @@ button { color: inherit; }
 
 @media (max-width: 760px) {
   .account-totals { grid-template-columns: 1fr 1fr; }
+  .analysis-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-content-grid { grid-template-columns: 1fr; }
+  .analysis-trend-panel, .analysis-activity-panel { grid-column: auto; }
+  .analysis-category-content { grid-template-columns: minmax(120px, .7fr) minmax(0, 1.3fr); }
   .transaction-summary { gap: 8px; }
   .transaction-total-card { padding: 14px; }
   .transaction-total-card strong { font-size: 19px; }
@@ -882,6 +918,12 @@ button { color: inherit; }
 }
 
 @media (max-width: 420px) {
+  .analysis-metric-card { padding: 13px; }
+  .analysis-metric-card > strong { font-size: 17px; }
+  .analysis-category-content { grid-template-columns: 1fr; }
+  .analysis-donut { max-width: 155px; }
+  .analysis-trend-panel .panel-heading { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .analysis-trend-legend { margin-left: 0; }
   .dashboard-actions { justify-content: flex-start; }
   .dashboard-actions > .button-primary { flex: 1 1 100%; }
   .account-totals { grid-template-columns: 1fr; }
