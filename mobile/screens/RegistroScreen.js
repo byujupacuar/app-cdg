@@ -120,22 +120,54 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
   const [loadingCats, setLoadingCats] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
   const [loadingMovimientos, setLoadingMovimientos] = useState(true);
+  const [loadingMasMovimientos, setLoadingMasMovimientos] = useState(false);
+  const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+  const [hayMasMovimientos, setHayMasMovimientos] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
   const [eliminandoId, setEliminandoId] = useState(null);
 
   const cargarMovimientos = useCallback(async (activa = () => true) => {
-    const res = await obtenerMovimientosReal(token);
+    const res = await obtenerMovimientosReal(token, {
+      page: 1,
+      limit: 50,
+      type: filtroTipo,
+      search: busqueda,
+      financialAccountId: filtroCuenta
+    });
     if (!activa()) return;
 
     if (res.exito) {
       setMovimientos(res.movimientos);
+      setPaginaMovimientos(1);
+      setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
     } else {
       Alert.alert("Error", res.mensaje || "No se pudieron cargar los movimientos.");
     }
 
     setLoadingMovimientos(false);
-  }, [token]);
+  }, [token, filtroTipo, busqueda, filtroCuenta]);
+
+  const cargarMasMovimientos = useCallback(async () => {
+    if (!hayMasMovimientos || loadingMasMovimientos) return;
+    setLoadingMasMovimientos(true);
+    try {
+      const res = await obtenerMovimientosReal(token, {
+        page: paginaMovimientos + 1,
+        limit: 50,
+        type: filtroTipo,
+        search: busqueda,
+        financialAccountId: filtroCuenta
+      });
+      if (res.exito) {
+        setMovimientos((actuales) => [...actuales, ...(res.movimientos || [])]);
+        setPaginaMovimientos((actual) => actual + 1);
+        setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
+      }
+    } finally {
+      setLoadingMasMovimientos(false);
+    }
+  }, [token, filtroTipo, busqueda, filtroCuenta, paginaMovimientos, hayMasMovimientos, loadingMasMovimientos]);
 
   useFocusEffect(
     useCallback(() => {
@@ -639,6 +671,17 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
             </React.Fragment>
           )})
         )}
+        {hayMasMovimientos && (
+          <TouchableOpacity
+            style={styles.loadMoreButton}
+            onPress={cargarMasMovimientos}
+            disabled={loadingMasMovimientos}
+          >
+            {loadingMasMovimientos
+              ? <ActivityIndicator size="small" color={colors.green700} />
+              : <Text style={styles.loadMoreText}>Cargar más movimientos</Text>}
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
     </KeyboardAvoidingView>
@@ -709,6 +752,8 @@ const styles = StyleSheet.create({
   btnCancelarTexto: { color: colors.muted, fontSize: 15, fontWeight: '600' },
   historial: { marginTop: 8 },
   tituloHistorial: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 12 },
+  loadMoreButton: { alignItems: 'center', borderColor: colors.line, borderRadius: 10, borderWidth: 1, justifyContent: 'center', marginTop: 4, minHeight: 43, backgroundColor: colors.white },
+  loadMoreText: { color: colors.green700, fontSize: 13, fontWeight: '800' },
   dateHeading: { color: colors.muted, fontSize: 12, fontWeight: '800', textTransform: 'capitalize', marginTop: 9, marginBottom: 8 },
   movimientoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderColor: colors.line, borderWidth: 1, borderRadius: 12, padding: 13, marginBottom: 9 },
   movimientoDetalle: { flex: 1, marginRight: 8 },

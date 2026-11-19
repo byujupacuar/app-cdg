@@ -116,8 +116,8 @@ export const guardarMovimiento = async (datos) => {
   return res.data;
 };
 
-export const obtenerMovimientos = async () => {
-  const res = await api.get('/api/movimientos');
+export const obtenerMovimientos = async (params = {}) => {
+  const res = await api.get('/api/movimientos', { params });
   return res.data;
 };
 

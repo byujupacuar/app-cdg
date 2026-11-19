@@ -692,17 +692,18 @@ export const guardarMovimientoReal = async (datosMovimiento, token) => {
   }
 };
 
-export const obtenerMovimientosReal = async (token) => {
+export const obtenerMovimientosReal = async (token, params = {}) => {
   try {
     const respuesta = await axios.get(`${API_URL}/api/movimientos`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
+      params
     });
     const mutaciones = await getPendingMutations();
     const movimientos = mutaciones.length
       ? await combinarMovimientosPendientes(respuesta.data.movimientos, mutaciones)
       : respuesta.data.movimientos;
     await cacheSet('transactions', movimientos);
-    return { exito: true, movimientos };
+    return { exito: true, movimientos, paginacion: respuesta.data.paginacion };
   } catch (error) {
     console.error('Error al consultar movimientos:', error.response?.data || error.message);
     const movimientos = await cacheGet('transactions');

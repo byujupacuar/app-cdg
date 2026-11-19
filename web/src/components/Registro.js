@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
@@ -44,18 +44,32 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+  const [hayMasMovimientos, setHayMasMovimientos] = useState(false);
+  const [cargandoMasMovimientos, setCargandoMasMovimientos] = useState(false);
 
-  const cargarMovimientos = async (activo = () => true) => {
+  const cargarMovimientos = useCallback(async (activo = () => true, pagina = 1) => {
     setCargandoMovimientos(true);
     try {
-      const res = await obtenerMovimientos();
-      if (activo()) setMovimientos(res.movimientos || []);
+      const res = await obtenerMovimientos({
+        page: pagina,
+        limit: 50,
+        type: filtroTipo,
+        search: busqueda,
+        dateFrom: fechaInicio,
+        dateTo: fechaFin
+      });
+      if (activo()) {
+        setMovimientos(pagina === 1 ? (res.movimientos || []) : (actuales) => [...actuales, ...(res.movimientos || [])]);
+        setPaginaMovimientos(pagina);
+        setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
+      }
     } catch (err) {
       if (activo()) setError(err.response?.data?.error || 'No se pudieron cargar los movimientos.');
     } finally {
       if (activo()) setCargandoMovimientos(false);
     }
-  };
+  }, [filtroTipo, busqueda, fechaInicio, fechaFin]);
 
   useEffect(() => {
     let activo = true;
@@ -95,9 +109,15 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     cargarCategorias();
     cargarCuentas();
     cargarTransferencias();
-    cargarMovimientos(() => activo);
     return () => { activo = false; };
   }, []);
+
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => {
+      cargarMovimientos(() => true, 1);
+    }, busqueda ? 300 : 0);
+    return () => window.clearTimeout(temporizador);
+  }, [busqueda, filtroTipo, fechaInicio, fechaFin, cargarMovimientos]);
 
   const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
 
@@ -107,6 +127,28 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       setCategoriaSel(categoriasTipo[0]?.name || '');
     }
   }, [tipo, categorias, categoriaSel]);
+
+  const cargarMasMovimientos = async () => {
+    if (!hayMasMovimientos || cargandoMasMovimientos) return;
+    setCargandoMasMovimientos(true);
+    try {
+      const res = await obtenerMovimientos({
+        page: paginaMovimientos + 1,
+        limit: 50,
+        type: filtroTipo,
+        search: busqueda,
+        dateFrom: fechaInicio,
+        dateTo: fechaFin
+      });
+      setMovimientos((actuales) => [...actuales, ...(res.movimientos || [])]);
+      setPaginaMovimientos((actual) => actual + 1);
+      setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudieron cargar más movimientos.');
+    } finally {
+      setCargandoMasMovimientos(false);
+    }
+  };
 
   const handleGuardar = async (event) => {
     event.preventDefault();
@@ -529,6 +571,17 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
                 </div>
               </article>
             ))}
+            {hayMasMovimientos && (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={cargarMasMovimientos}
+                disabled={cargandoMasMovimientos}
+                style={{ width: '100%', marginTop: 12 }}
+              >
+                {cargandoMasMovimientos ? 'Cargando...' : 'Cargar más movimientos'}
+              </button>
+            )}
           </div>
         )}
       </section>
