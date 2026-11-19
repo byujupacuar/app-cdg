@@ -136,7 +136,7 @@ export default function AnalysisScreen({ token, currencyCode = 'USD' }) {
                   <View style={[styles.bar, styles.incomeBar, { height: `${item.ingresos > 0 ? Math.max(5, item.ingresos / maxBarra * 100) : 0}%` }]} />
                   <View style={[styles.bar, styles.expenseBar, { height: `${item.gastos > 0 ? Math.max(5, item.gastos / maxBarra * 100) : 0}%` }]} />
                 </View>
-                <Text style={styles.chartLabel}>{item.label}</Text>
+                <Text style={styles.chartLabel} numberOfLines={1}>{item.label}</Text>
               </View>
             ))}
           </View>
@@ -177,7 +177,7 @@ export default function AnalysisScreen({ token, currencyCode = 'USD' }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
-  content: { padding: 18, paddingBottom: 36 },
+  content: { paddingHorizontal: 12, paddingVertical: 18, paddingBottom: 36 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas },
   muted: { color: colors.muted, fontSize: 13, marginTop: 9 },
   title: { color: colors.ink, fontSize: 27, fontWeight: '800', letterSpacing: -0.5 },
@@ -199,16 +199,16 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   legendText: { fontSize: 12, color: colors.muted },
-  card: { backgroundColor: colors.white, padding: 16, borderRadius: 18, borderColor: colors.line, borderWidth: 1, marginBottom: 19 },
+  card: { backgroundColor: colors.white, padding: 16, borderRadius: 18, borderColor: colors.line, borderWidth: 1, marginBottom: 19, width: '100%' },
   cardTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   empty: { color: colors.muted, fontSize: 13, lineHeight: 20, paddingVertical: 12 },
-  chart: { height: 132, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 20 },
+  chart: { height: 132, width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 20 },
   chartGroup: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
-  bars: { width: '68%', height: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
-  bar: { width: 9, minHeight: 2, borderTopLeftRadius: 5, borderTopRightRadius: 5 },
+  bars: { width: '100%', height: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4, paddingHorizontal: 3 },
+  bar: { width: '42%', maxWidth: 16, minHeight: 2, borderTopLeftRadius: 5, borderTopRightRadius: 5 },
   incomeBar: { backgroundColor: colors.blue700 },
   expenseBar: { backgroundColor: colors.emerald700 },
-  chartLabel: { color: colors.muted, fontSize: 12, marginTop: 8 },
+  chartLabel: { color: colors.muted, fontSize: 10, marginTop: 8, maxWidth: '100%', textAlign: 'center' },
   totalsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 14, marginTop: 13 },
   totalLabel: { color: colors.muted, fontSize: 12 },
   totalIncome: { color: colors.blue700, fontSize: 15, fontWeight: '800', marginTop: 4 },
