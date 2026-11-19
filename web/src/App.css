@@ -227,7 +227,15 @@ button { color: inherit; }
 .recent-description { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
 .recent-description strong { font-size: 12px; }
 .recent-description small { color: #9aa39d; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recent-item > strong { font-size: 12px; white-space: nowrap; }
+.recent-item > strong {
+  flex: 0 1 38%;
+  font-size: 12px;
+  line-height: 1.35;
+  max-width: 38%;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
+}
 .dashboard-cta {
   align-items: center;
   background: #edf4ed;
