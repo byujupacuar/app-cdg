@@ -1,9 +1,10 @@
-const CACHE_NAME = 'nivia-pwa-v1';
+const CACHE_NAME = 'nivia-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
+  '/favicon.png',
   '/logo192.png',
   '/logo512.png'
 ];
