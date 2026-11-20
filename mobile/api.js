@@ -274,6 +274,51 @@ const guardarMovimientoLocal = async (id, datos, action) => {
   });
 };
 
+const resumirAnalisisMovimientos = (movimientos, parametros) => {
+  const { dateFrom, dateTo, financialAccountId } = parametros;
+  const filtrados = movimientos.filter((movimiento) => {
+    const fecha = String(movimiento.date || '').slice(0, 10);
+    return (!dateFrom || fecha >= dateFrom)
+      && (!dateTo || fecha <= dateTo)
+      && (!financialAccountId || movimiento.financialAccountId === financialAccountId);
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const ingresos = filtrados
+    .filter((movimiento) => movimiento.type === 'INGRESO')
+    .reduce((total, movimiento) => total + Number(movimiento.amount || 0), 0);
+  const gastos = filtrados
+    .filter((movimiento) => movimiento.type === 'GASTO')
+    .reduce((total, movimiento) => total + Number(movimiento.amount || 0), 0);
+  const categoriasMap = new Map();
+  filtrados.filter((movimiento) => movimiento.type === 'GASTO').forEach((movimiento) => {
+    const id = movimiento.category?.id || movimiento.category?.name || 'general';
+    const categoria = categoriasMap.get(id) || {
+      id,
+      nombre: movimiento.category?.name || 'General',
+      icono: movimiento.category?.icon || '🏷️',
+      monto: 0
+    };
+    categoria.monto += Number(movimiento.amount || 0);
+    categoriasMap.set(id, categoria);
+  });
+  const gastosPorCategoria = Array.from(categoriasMap.values())
+    .map((categoria) => ({
+      ...categoria,
+      porcentaje: gastos > 0 ? categoria.monto / gastos * 100 : 0
+    }))
+    .sort((a, b) => b.monto - a.monto);
+  return {
+    resumen: {
+      totalIngresos: ingresos,
+      totalGastos: gastos,
+      balanceTotal: ingresos - gastos,
+      totalMovimientos: filtrados.length
+    },
+    periodo: { fechaInicio: dateFrom, fechaFin: dateTo },
+    gastosPorCategoria,
+    ultimosMovimientos: filtrados
+  };
+};
+
 const encolarMovimiento = async (id, action, data) => {
   const mutaciones = await getPendingMutations();
   const creadaPendiente = mutaciones.find((item) => item.tempId === id && item.action === 'CREATE');
@@ -762,6 +807,38 @@ export const obtenerDashboardReal = async (token) => {
     const datos = await cacheGet('dashboard');
     if (datos) return { exito: true, datos, offline: true };
     return { exito: false, mensaje: 'No se pudo actualizar el balance.' };
+  }
+};
+
+export const obtenerAnalisisReal = async (token, parametros) => {
+  try {
+    const respuesta = await axios.get(`${API_URL}/api/movimientos/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { ...parametros, incluirTodos: true }
+    });
+    const mutaciones = await getPendingMutations();
+    if (mutaciones.length) {
+      const movimientos = await combinarMovimientosPendientes(
+        respuesta.data.ultimosMovimientos || [],
+        mutaciones
+      );
+      return {
+        exito: true,
+        datos: resumirAnalisisMovimientos(movimientos, parametros)
+      };
+    }
+    return { exito: true, datos: respuesta.data };
+  } catch (error) {
+    console.error('Error al consultar el análisis:', error.response?.data || error.message);
+    const movimientos = await cacheGet('transactions');
+    if (Array.isArray(movimientos)) {
+      return {
+        exito: true,
+        datos: resumirAnalisisMovimientos(movimientos, parametros),
+        offline: true
+      };
+    }
+    return { exito: false, mensaje: error.response?.data?.error || 'No se pudo consultar el análisis.' };
   }
 };
 
