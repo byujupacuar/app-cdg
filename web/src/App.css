@@ -293,8 +293,15 @@ button { color: inherit; }
 .analysis-trend-legend i { border-radius: 3px; height: 9px; width: 9px; }
 .analysis-legend-income, .analysis-bar-income { fill: #10b981; background: #10b981; }
 .analysis-legend-expense, .analysis-bar-expense { fill: #ef6b6b; background: #ef6b6b; }
-.analysis-trend-scroll { overflow-x: auto; }
-.analysis-trend-chart { display: block; height: auto; min-width: 0; overflow: visible; width: 100%; }
+.analysis-trend-scroll { overflow: hidden; width: 100%; }
+.analysis-trend-chart {
+  display: block;
+  height: clamp(280px, 32vw, 420px);
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+  width: 100%;
+}
 .analysis-grid-line { stroke: #edf1f6; stroke-width: 1; }
 .analysis-axis-label { fill: #8b97a9; font-size: 10px; }
 .analysis-bar-income, .analysis-bar-expense { transition: opacity .15s ease; }
@@ -917,6 +924,7 @@ button { color: inherit; }
   .analysis-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analysis-content-grid { grid-template-columns: 1fr; }
   .analysis-trend-panel, .analysis-activity-panel { grid-column: auto; }
+  .analysis-trend-chart { height: clamp(220px, 56vw, 280px); }
   .analysis-category-content { grid-template-columns: minmax(120px, .7fr) minmax(0, 1.3fr); }
   .transaction-summary { gap: 8px; }
   .transaction-total-card { padding: 14px; }

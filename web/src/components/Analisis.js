@@ -370,6 +370,7 @@ export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' 
                     <svg
                       className="analysis-trend-chart"
                       viewBox="0 0 760 280"
+                      preserveAspectRatio="xMidYMid meet"
                       role="img"
                       aria-label={`Gráfico de ingresos y gastos por intervalo desde ${fechaLegible(rango.fechaInicio)} hasta ${fechaLegible(rango.fechaFin)}`}
                     >
