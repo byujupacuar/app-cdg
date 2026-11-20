@@ -23,6 +23,7 @@ jest.mock('../services/api', () => ({
 describe('Registro', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     obtenerCategorias.mockResolvedValue({ categorias: [] });
     obtenerCuentasFinancieras.mockResolvedValue({
       cuentas: [{ id: 'account-1', name: 'Cuenta principal', type: 'EFECTIVO' }]
@@ -51,6 +52,10 @@ describe('Registro', () => {
         }
       ]
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('filters API-backed movements and recalculates period totals', async () => {
