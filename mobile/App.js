@@ -3,7 +3,7 @@ import { createNavigationContainerRef, NavigationContainer } from '@react-naviga
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, Alert, Image, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { colors } from './theme';
 import { clearSession, getPendingMutationCount, loadSession, saveSession } from './database/offlineStore';
@@ -24,7 +24,8 @@ import PerfilScreen from './screens/PerfilScreen';
 const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
-export default function App() {
+function AppContent() {
+  const insets = useSafeAreaInsets();
   const [token, setToken] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [restaurandoSesion, setRestaurandoSesion] = useState(true);
@@ -146,30 +147,25 @@ export default function App() {
 
   if (restaurandoSesion) {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas }}>
-          <ActivityIndicator color={colors.green700} />
-          <Text style={{ color: colors.muted, marginTop: 10 }}>Abriendo tus datos guardados...</Text>
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.canvas }}>
+        <ActivityIndicator color={colors.green700} />
+        <Text style={{ color: colors.muted, marginTop: 10 }}>Abriendo tus datos guardados...</Text>
+      </SafeAreaView>
     );
   }
 
   if (!token) {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.canvas }}>
-          <AuthScreen onLoginSuccess={handleLoginSuccess} />
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.canvas }}>
+        <AuthScreen onLoginSuccess={handleLoginSuccess} />
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer ref={navigationRef}>
-        <StatusBar style="dark" backgroundColor={colors.white} />
-        <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.white }}>
+    <NavigationContainer ref={navigationRef}>
+      <StatusBar style="dark" backgroundColor={colors.white} />
+      <View style={{ flex: 1, backgroundColor: colors.white }}>
         <SafeAreaView edges={['top']} style={{ backgroundColor: colors.white }}>
         {conexionDisponible === false && (
           <Text style={{
@@ -286,9 +282,9 @@ export default function App() {
             borderTopColor: colors.line,
             borderTopWidth: 1,
             width: '100%',
-            height: 65,
+            height: 65 + insets.bottom,
             paddingTop: 5,
-            paddingBottom: 2,
+            paddingBottom: insets.bottom,
             paddingHorizontal: 0,
             elevation: 0
           },
@@ -333,7 +329,7 @@ export default function App() {
           onPress={() => navigationRef.navigate('Movimientos', { abrirNuevo: true })}
           style={{
             position: 'absolute',
-            bottom: 75,
+            bottom: 75 + insets.bottom,
             alignSelf: 'center',
             width: 54,
             height: 54,
@@ -350,11 +346,17 @@ export default function App() {
         >
           <Text style={{ color: colors.white, fontSize: 32, lineHeight: 36, fontWeight: '400' }}>+</Text>
         </TouchableOpacity>
-        </SafeAreaView>
+      </View>
         <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(23,32,51,0.28)', justifyContent: 'flex-end' }}>
           <TouchableOpacity activeOpacity={1} onPress={() => setMenuVisible(false)} style={{ flex: 1 }} />
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 30 }}>
+          <View style={{
+            backgroundColor: colors.white,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 22,
+            paddingBottom: Math.max(insets.bottom, 16) + 14
+          }}>
             <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800', marginBottom: 5 }}>Más de Nivia</Text>
             <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 14 }}>{usuario?.name || usuario?.email || 'Tu cuenta'}</Text>
             {[
@@ -400,6 +402,13 @@ export default function App() {
           </SafeAreaView>
         </Modal>
       </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }

@@ -10,6 +10,7 @@ import {
   obtenerCuentasFinancieras,
   guardarMovimientoReal,
   obtenerMovimientosReal,
+  obtenerAnalisisReal,
   obtenerTransferencias,
   actualizarMovimientoReal,
   eliminarMovimientoReal
@@ -119,6 +120,7 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
   const [cuentaFinancieraId, setCuentaFinancieraId] = useState(null);
   const [loadingCats, setLoadingCats] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
+  const [resumenMes, setResumenMes] = useState(null);
   const [loadingMovimientos, setLoadingMovimientos] = useState(true);
   const [loadingMasMovimientos, setLoadingMasMovimientos] = useState(false);
   const [paginaMovimientos, setPaginaMovimientos] = useState(1);
@@ -147,6 +149,20 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
 
     setLoadingMovimientos(false);
   }, [token, filtroTipo, busqueda, filtroCuenta]);
+
+  const cargarBalanceMes = useCallback(async (activa = () => true) => {
+    const hoy = fechaActualLocal();
+    const res = await obtenerAnalisisReal(token, {
+      dateFrom: `${hoy.slice(0, 7)}-01`,
+      dateTo: hoy
+    });
+    if (!activa()) return;
+    if (res.exito) {
+      setResumenMes(res.datos.resumen);
+    } else {
+      Alert.alert("Error", res.mensaje || "No se pudo consultar el balance del mes.");
+    }
+  }, [token]);
 
   const cargarMasMovimientos = useCallback(async () => {
     if (!hayMasMovimientos || loadingMasMovimientos) return;
@@ -228,10 +244,11 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
       cargarCuentas();
       cargarTransferencias();
       cargarMovimientos(() => activa);
+      cargarBalanceMes(() => activa);
       return () => {
         activa = false;
       };
-    }, [token, tipo, route, navigation, cargarMovimientos])
+    }, [token, tipo, route, navigation, cargarMovimientos, cargarBalanceMes])
   );
 
   const limpiarFormulario = () => {
@@ -293,6 +310,7 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
       limpiarFormulario();
       setShowForm(false);
       cargarMovimientos();
+      cargarBalanceMes();
     } else {
       Alert.alert(editandoId ? "Error al actualizar" : "Error al guardar", res.mensaje);
     }
@@ -318,6 +336,7 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
             }
 
             setMovimientos(actuales => actuales.filter(item => item.id !== movimiento.id));
+            cargarBalanceMes();
             if (editandoId === movimiento.id) limpiarFormulario();
             Alert.alert(
               "Eliminado",
@@ -347,14 +366,9 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
       ].some((valor) => String(valor || '').toLocaleLowerCase().includes(consulta));
     });
   const fechaActual = new Date();
-  const periodoActual = fechaActualLocal().slice(0, 7);
-  const movimientosPeriodo = movimientosFiltrados.filter((movimiento) => {
-    return String(movimiento.date || '').slice(0, 7) === periodoActual;
-  });
-  const totalPeriodo = movimientosPeriodo.reduce((total, movimiento) =>
-    total + (movimiento.type === 'INGRESO' ? 1 : -1) * Number(movimiento.amount || 0), 0);
-  const ingresosPeriodo = movimientosPeriodo.filter((item) => item.type === 'INGRESO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const gastosPeriodo = movimientosPeriodo.filter((item) => item.type === 'GASTO').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const balancePeriodo = Number(resumenMes?.balanceTotal) || 0;
+  const ingresosPeriodo = Number(resumenMes?.totalIngresos) || 0;
+  const gastosPeriodo = Number(resumenMes?.totalGastos) || 0;
   const exportarCsv = async () => {
     const escapar = (valor) => {
       const texto = String(valor ?? '');
@@ -435,11 +449,19 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
 
       <View style={styles.periodCard}>
         <Text style={styles.periodLabel}>Balance de {fechaActual.toLocaleDateString('es', { month: 'long' })}</Text>
-        <Text style={styles.periodAmount}>{totalPeriodo < 0 ? '−' : ''}{moneda(Math.abs(totalPeriodo))}</Text>
-        <View style={styles.periodTotals}>
-          <Text style={styles.periodIncome}>↑ {moneda(ingresosPeriodo)} ingresos</Text>
-          <Text style={styles.periodExpense}>↓ {moneda(gastosPeriodo)} gastos</Text>
-        </View>
+        <Text style={styles.periodAmount}>
+          {resumenMes
+            ? `${balancePeriodo < 0 ? '−' : ''}${moneda(Math.abs(balancePeriodo))}`
+            : '—'}
+        </Text>
+        {resumenMes ? (
+          <View style={styles.periodTotals}>
+            <Text style={styles.periodIncome}>↑ {moneda(ingresosPeriodo)} ingresos</Text>
+            <Text style={styles.periodExpense}>↓ {moneda(gastosPeriodo)} gastos</Text>
+          </View>
+        ) : (
+          <Text style={styles.periodIncome}>Balance mensual no disponible</Text>
+        )}
       </View>
 
       <TextInput
