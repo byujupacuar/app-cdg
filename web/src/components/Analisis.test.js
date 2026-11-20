@@ -81,7 +81,11 @@ describe('Analisis', () => {
     expect(await screen.findByRole('heading', { name: 'Ingresos y gastos en el tiempo' })).toBeInTheDocument();
     expect(screen.getByText('Balance neto').nextElementSibling).toHaveTextContent('30');
     expect(screen.getByRole('img', { name: /Gráfico de ingresos y gastos por intervalo/ })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /Distribución de gastos por categoría/ })).toBeInTheDocument();
+    const categoryChart = screen.getByRole('img', { name: /Distribución de gastos por categoría/ });
+    expect(categoryChart).toBeInTheDocument();
+    expect(categoryChart).toBeEmptyDOMElement();
+    expect(categoryChart.nextElementSibling).toHaveClass('analysis-category-total');
+    expect(categoryChart.nextElementSibling).toHaveTextContent('Total de gastos');
     expect(screen.getByText(/Alimentación/)).toBeInTheDocument();
     expect(screen.queryByText('Patrimonio neto actual')).not.toBeInTheDocument();
   });

@@ -444,8 +444,10 @@ export default function Analisis({ refreshKey, onNavigate, currencyCode = 'USD' 
                       role="img"
                       aria-label={`Distribución de gastos por categoría. Total ${currency(gastos)}`}
                       style={{ background: fondoCategorias }}
-                    >
-                      <div><strong>{currency(gastos)}</strong><small>Total de gastos</small></div>
+                    />
+                    <div className="analysis-category-total">
+                      <small>Total de gastos</small>
+                      <strong>{currency(gastos)}</strong>
                     </div>
                   </div>
                   <div className="analysis-category-list">
