@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
+  obtenerDashboard,
   guardarMovimiento,
   obtenerMovimientos,
   actualizarMovimiento,
@@ -34,7 +35,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
-  const [totalesMovimientos, setTotalesMovimientos] = useState(null);
+  const [resumenMes, setResumenMes] = useState(null);
   const [transferencias, setTransferencias] = useState([]);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
   const [editandoId, setEditandoId] = useState(null);
@@ -49,6 +50,21 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [hayMasMovimientos, setHayMasMovimientos] = useState(false);
   const [cargandoMasMovimientos, setCargandoMasMovimientos] = useState(false);
 
+  const cargarResumenMes = useCallback(async (activo = () => true) => {
+    const hoy = fechaActualLocal();
+    try {
+      const res = await obtenerDashboard({
+        fechaInicio: `${hoy.slice(0, 7)}-01`,
+        fechaFin: hoy,
+        incluirTodos: true
+      });
+      if (!res.exito) throw new Error(res.error || 'No se pudo cargar el balance mensual.');
+      if (activo()) setResumenMes(res.resumen || null);
+    } catch (err) {
+      if (activo()) setError(err.response?.data?.error || err.message || 'No se pudo cargar el balance mensual.');
+    }
+  }, []);
+
   const cargarMovimientos = useCallback(async (activo = () => true, pagina = 1) => {
     setCargandoMovimientos(true);
     try {
@@ -62,7 +78,6 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       });
       if (activo()) {
         setMovimientos(pagina === 1 ? (res.movimientos || []) : (actuales) => [...actuales, ...(res.movimientos || [])]);
-        if (pagina === 1) setTotalesMovimientos(res.totales || null);
         setPaginaMovimientos(pagina);
         setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
       }
@@ -111,8 +126,9 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     cargarCategorias();
     cargarCuentas();
     cargarTransferencias();
+    cargarResumenMes(() => activo);
     return () => { activo = false; };
-  }, []);
+  }, [cargarResumenMes]);
 
   useEffect(() => {
     const temporizador = window.setTimeout(() => {
@@ -186,6 +202,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       setMensaje(editandoId ? 'Movimiento actualizado. Tu resumen ya está actualizado.' : 'Movimiento registrado. Tu resumen ya está actualizado.');
       limpiarFormulario();
       await cargarMovimientos();
+      await cargarResumenMes();
       onGuardado?.();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo guardar el movimiento. Inténtalo de nuevo.');
@@ -226,13 +243,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     try {
       await eliminarMovimiento(movimiento.id);
       setMovimientos((actuales) => actuales.filter((item) => item.id !== movimiento.id));
-      if (movimiento.type === 'INGRESO' || movimiento.type === 'GASTO') {
-        const totalKey = movimiento.type === 'INGRESO' ? 'ingresos' : 'gastos';
-        setTotalesMovimientos((actuales) => actuales && ({
-          ...actuales,
-          [totalKey]: Number(actuales[totalKey]) - (Number(movimiento.amount) || 0)
-        }));
-      }
+      await cargarResumenMes();
       if (editandoId === movimiento.id) limpiarFormulario();
       setMensaje('Movimiento eliminado.');
       onGuardado?.();
@@ -270,14 +281,10 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       (!fechaFin || fecha <= fechaFin) &&
       (!consulta || texto.includes(consulta));
   });
-  const ingresosCargados = movimientosFiltrados
-    .filter((movimiento) => movimiento.type === 'INGRESO')
-    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
-  const gastosCargados = movimientosFiltrados
-    .filter((movimiento) => movimiento.type === 'GASTO')
-    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
-  const ingresosFiltrados = totalesMovimientos?.ingresos ?? ingresosCargados;
-  const gastosFiltrados = totalesMovimientos?.gastos ?? gastosCargados;
+  const ingresosMes = Number(resumenMes?.totalIngresos) || 0;
+  const gastosMes = Number(resumenMes?.totalGastos) || 0;
+  const balanceMes = Number(resumenMes?.balanceTotal) || ingresosMes - gastosMes;
+  const nombreMes = new Date().toLocaleDateString('es', { month: 'long' });
 
   const exportarCSV = () => {
     const valorCSV = (value) => {
@@ -333,19 +340,19 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
         <div className="movement-intro-icon">↕</div>
       </section>
 
-      <section className="transaction-summary" aria-label="Totales de movimientos filtrados">
+      <section className="transaction-summary" aria-label={`Totales de ${nombreMes}`}>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">INGRESOS</span>
-          <strong className="amount-positive">{currency(ingresosFiltrados)}</strong>
+          <span className="panel-kicker">INGRESOS DEL MES</span>
+          <strong className="amount-positive">{resumenMes ? currency(ingresosMes) : '—'}</strong>
         </article>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">GASTOS</span>
-          <strong className="amount-negative">{currency(gastosFiltrados)}</strong>
+          <span className="panel-kicker">GASTOS DEL MES</span>
+          <strong className="amount-negative">{resumenMes ? currency(gastosMes) : '—'}</strong>
         </article>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">BALANCE NETO</span>
-          <strong className={ingresosFiltrados - gastosFiltrados >= 0 ? 'amount-positive' : 'amount-negative'}>
-            {currency(ingresosFiltrados - gastosFiltrados)}
+          <span className="panel-kicker">BALANCE DE {nombreMes}</span>
+          <strong className={balanceMes >= 0 ? 'amount-positive' : 'amount-negative'}>
+            {resumenMes ? currency(balanceMes) : '—'}
           </strong>
         </article>
       </section>

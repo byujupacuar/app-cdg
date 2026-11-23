@@ -4,6 +4,7 @@ import Registro from './Registro';
 import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
+  obtenerDashboard,
   obtenerMovimientos,
   obtenerTransferencias,
   actualizarMovimiento,
@@ -13,6 +14,7 @@ import {
 jest.mock('../services/api', () => ({
   obtenerCategorias: jest.fn(),
   obtenerCuentasFinancieras: jest.fn(),
+  obtenerDashboard: jest.fn(),
   obtenerMovimientos: jest.fn(),
   obtenerTransferencias: jest.fn(),
   guardarMovimiento: jest.fn(),
@@ -25,6 +27,10 @@ describe('Registro', () => {
     jest.clearAllMocks();
     jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     obtenerCategorias.mockResolvedValue({ categorias: [] });
+    obtenerDashboard.mockResolvedValue({
+      exito: true,
+      resumen: { totalIngresos: 8332.42, totalGastos: 6744.78, balanceTotal: 1587.64 }
+    });
     obtenerCuentasFinancieras.mockResolvedValue({
       cuentas: [{ id: 'account-1', name: 'Cuenta principal', type: 'EFECTIVO' }]
     });
@@ -58,50 +64,36 @@ describe('Registro', () => {
     jest.restoreAllMocks();
   });
 
-  test('filters API-backed movements and recalculates period totals', async () => {
+  test('keeps full monthly totals visible while the movement list is filtered', async () => {
     render(<Registro />);
 
     expect(await screen.findByText('Compra semanal')).toBeInTheDocument();
     expect(screen.getByText('Pago')).toBeInTheDocument();
 
+    const resumen = screen.getByLabelText(/Totales de/);
+    expect(resumen).toHaveTextContent('8332,42');
+    expect(resumen).toHaveTextContent('6744,78');
+    expect(resumen).toHaveTextContent('1587,64');
+
     fireEvent.change(screen.getByLabelText('Buscar'), { target: { value: 'supermercado' } });
 
     await waitFor(() => expect(screen.queryByText('Pago')).not.toBeInTheDocument());
     expect(screen.getByText('HISTORIAL · 1 REGISTROS')).toBeInTheDocument();
-    expect(screen.getByLabelText('Totales de movimientos filtrados')).toHaveTextContent('42');
-  });
-
-  test('uses totals for all filtered records instead of only the loaded page', async () => {
-    obtenerMovimientos.mockResolvedValue({
-      movimientos: [
-        {
-          id: 'income-page-1',
-          type: 'INGRESO',
-          amount: 100,
-          date: '2026-10-18T12:00:00.000Z',
-          description: 'Pago parcial',
-          category: { name: 'Salario', icon: '💼' },
-          financialAccount: { name: 'Cuenta principal' }
-        },
-        {
-          id: 'expense-page-1',
-          type: 'GASTO',
-          amount: 42,
-          date: '2026-10-17T12:00:00.000Z',
-          description: 'Compra parcial',
-          category: { name: 'Supermercado', icon: '🛒' },
-          financialAccount: { name: 'Cuenta principal' }
-        }
-      ],
-      totales: { ingresos: 8332.42, gastos: 6744.78 }
-    });
-
-    render(<Registro />);
-
-    await screen.findByText('Pago parcial');
-    const resumen = screen.getByLabelText('Totales de movimientos filtrados');
     expect(resumen).toHaveTextContent('8332,42');
     expect(resumen).toHaveTextContent('6744,78');
+
+    fireEvent.change(screen.getByLabelText('Buscar'), { target: { value: '' } });
+    const tipoFiltro = screen.getAllByRole('combobox').find((select) => select.value === 'TODOS');
+    fireEvent.change(tipoFiltro, { target: { value: 'INGRESO' } });
+    await waitFor(() => expect(screen.queryByText('Compra semanal')).not.toBeInTheDocument());
+    expect(resumen).toHaveTextContent('8332,42');
+    expect(resumen).toHaveTextContent('6744,78');
+
+    expect(obtenerDashboard).toHaveBeenCalledWith(expect.objectContaining({
+      fechaInicio: expect.stringMatching(/^\d{4}-\d{2}-01$/),
+      fechaFin: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      incluirTodos: true
+    }));
   });
 
   test('allows exporting transfer-only records and requests the full transfer history', async () => {

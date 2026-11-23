@@ -210,17 +210,6 @@ router.get('/', autenticarToken, async (req, res) => {
     };
 
     const total = await prisma.transaction.count({ where });
-    const totalesPorTipo = await prisma.transaction.groupBy({
-      by: ['type'],
-      _sum: { amount: true },
-      where
-    });
-    const totales = totalesPorTipo.reduce((acumulados, movimiento) => {
-      if (movimiento.type === 'INGRESO') acumulados.ingresos = movimiento._sum.amount || 0;
-      if (movimiento.type === 'GASTO') acumulados.gastos = movimiento._sum.amount || 0;
-      return acumulados;
-    }, { ingresos: 0, gastos: 0 });
-
     const movimientos = await prisma.transaction.findMany({
       where,
       include: { category: true, financialAccount: true },
@@ -232,7 +221,6 @@ router.get('/', autenticarToken, async (req, res) => {
     res.json({
       exito: true,
       movimientos,
-      totales,
       paginacion: {
         page,
         limit,
