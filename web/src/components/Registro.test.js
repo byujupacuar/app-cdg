@@ -71,6 +71,39 @@ describe('Registro', () => {
     expect(screen.getByLabelText('Totales de movimientos filtrados')).toHaveTextContent('42');
   });
 
+  test('uses totals for all filtered records instead of only the loaded page', async () => {
+    obtenerMovimientos.mockResolvedValue({
+      movimientos: [
+        {
+          id: 'income-page-1',
+          type: 'INGRESO',
+          amount: 100,
+          date: '2026-10-18T12:00:00.000Z',
+          description: 'Pago parcial',
+          category: { name: 'Salario', icon: '💼' },
+          financialAccount: { name: 'Cuenta principal' }
+        },
+        {
+          id: 'expense-page-1',
+          type: 'GASTO',
+          amount: 42,
+          date: '2026-10-17T12:00:00.000Z',
+          description: 'Compra parcial',
+          category: { name: 'Supermercado', icon: '🛒' },
+          financialAccount: { name: 'Cuenta principal' }
+        }
+      ],
+      totales: { ingresos: 8332.42, gastos: 6744.78 }
+    });
+
+    render(<Registro />);
+
+    await screen.findByText('Pago parcial');
+    const resumen = screen.getByLabelText('Totales de movimientos filtrados');
+    expect(resumen).toHaveTextContent('8332,42');
+    expect(resumen).toHaveTextContent('6744,78');
+  });
+
   test('allows exporting transfer-only records and requests the full transfer history', async () => {
     obtenerMovimientos.mockResolvedValue({ movimientos: [] });
     obtenerTransferencias.mockResolvedValue({

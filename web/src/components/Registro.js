@@ -34,6 +34,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
+  const [totalesMovimientos, setTotalesMovimientos] = useState(null);
   const [transferencias, setTransferencias] = useState([]);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
   const [editandoId, setEditandoId] = useState(null);
@@ -61,6 +62,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       });
       if (activo()) {
         setMovimientos(pagina === 1 ? (res.movimientos || []) : (actuales) => [...actuales, ...(res.movimientos || [])]);
+        if (pagina === 1) setTotalesMovimientos(res.totales || null);
         setPaginaMovimientos(pagina);
         setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
       }
@@ -224,6 +226,13 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     try {
       await eliminarMovimiento(movimiento.id);
       setMovimientos((actuales) => actuales.filter((item) => item.id !== movimiento.id));
+      if (movimiento.type === 'INGRESO' || movimiento.type === 'GASTO') {
+        const totalKey = movimiento.type === 'INGRESO' ? 'ingresos' : 'gastos';
+        setTotalesMovimientos((actuales) => actuales && ({
+          ...actuales,
+          [totalKey]: Number(actuales[totalKey]) - (Number(movimiento.amount) || 0)
+        }));
+      }
       if (editandoId === movimiento.id) limpiarFormulario();
       setMensaje('Movimiento eliminado.');
       onGuardado?.();
@@ -261,12 +270,14 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       (!fechaFin || fecha <= fechaFin) &&
       (!consulta || texto.includes(consulta));
   });
-  const ingresosFiltrados = movimientosFiltrados
+  const ingresosCargados = movimientosFiltrados
     .filter((movimiento) => movimiento.type === 'INGRESO')
     .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
-  const gastosFiltrados = movimientosFiltrados
+  const gastosCargados = movimientosFiltrados
     .filter((movimiento) => movimiento.type === 'GASTO')
     .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
+  const ingresosFiltrados = totalesMovimientos?.ingresos ?? ingresosCargados;
+  const gastosFiltrados = totalesMovimientos?.gastos ?? gastosCargados;
 
   const exportarCSV = () => {
     const valorCSV = (value) => {
