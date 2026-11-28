@@ -22,7 +22,7 @@ const mostrarFechaMovimiento = (value) => {
   return new Date(year, month - 1, day).toLocaleDateString();
 };
 
-export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' }) {
+export default function Registro({ onGuardado, onNavigate, abrirMovimiento = 0, currencyCode = 'USD' }) {
   const currency = (amount) => formatCurrency(amount, currencyCode);
   const [tipo, setTipo] = useState('GASTO');
   const [monto, setMonto] = useState('');
@@ -49,6 +49,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [paginaMovimientos, setPaginaMovimientos] = useState(1);
   const [hayMasMovimientos, setHayMasMovimientos] = useState(false);
   const [cargandoMasMovimientos, setCargandoMasMovimientos] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const cargarResumenMes = useCallback(async (activo = () => true) => {
     const hoy = fechaActualLocal();
@@ -137,6 +138,16 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     return () => window.clearTimeout(temporizador);
   }, [busqueda, filtroTipo, fechaInicio, fechaFin, cargarMovimientos]);
 
+  useEffect(() => {
+    if (abrirMovimiento > 0) {
+      setEditandoId(null);
+      setMonto('');
+      setDescripcion('');
+      setFechaMovimiento(fechaActualLocal());
+      setModalVisible(true);
+    }
+  }, [abrirMovimiento]);
+
   const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
 
   useEffect(() => {
@@ -201,6 +212,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       }
       setMensaje(editandoId ? 'Movimiento actualizado. Tu resumen ya está actualizado.' : 'Movimiento registrado. Tu resumen ya está actualizado.');
       limpiarFormulario();
+      setModalVisible(false);
       await cargarMovimientos();
       await cargarResumenMes();
       onGuardado?.();
@@ -219,6 +231,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   };
 
   const handleEditar = (movimiento) => {
+    setModalVisible(true);
     setEditandoId(movimiento.id);
     setTipo(movimiento.type);
     setMonto(String(movimiento.amount));
@@ -337,7 +350,16 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
           <h2>Registra un movimiento</h2>
           <p>Agrega tus ingresos y gastos para tener una visión clara de tu dinero.</p>
         </div>
-        <div className="movement-intro-icon">↕</div>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={() => {
+            limpiarFormulario();
+            setModalVisible(true);
+          }}
+        >
+          ＋ Nuevo movimiento
+        </button>
       </section>
 
       <section className="transaction-summary" aria-label={`Totales de ${nombreMes}`}>
@@ -358,12 +380,34 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       </section>
 
       <div className="transaction-layout">
-        <section className="panel-card transaction-form-card">
+        {modalVisible && (
+          <button
+            type="button"
+            className="movement-modal-backdrop"
+            aria-label="Cerrar registro de movimiento"
+            onClick={() => {
+              limpiarFormulario();
+              setModalVisible(false);
+            }}
+          />
+        )}
+        <section className={`panel-card transaction-form-card ${modalVisible ? 'is-modal' : ''}`}>
           <div className="panel-heading">
             <div>
               <span className="panel-kicker">{editandoId ? 'EDITAR MOVIMIENTO' : 'NUEVO MOVIMIENTO'}</span>
               <h2>{editandoId ? 'Actualiza los detalles' : 'Completa los detalles'}</h2>
             </div>
+            <button
+              type="button"
+              className="movement-modal-close"
+              aria-label="Cerrar"
+              onClick={() => {
+                limpiarFormulario();
+                setModalVisible(false);
+              }}
+            >
+              ×
+            </button>
           </div>
 
           {error && <div className="inline-error" role="alert">{error}</div>}
@@ -493,7 +537,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
                 : <><span aria-hidden="true">{editandoId ? '✓' : '＋'}</span> {editandoId ? 'Guardar cambios' : 'Guardar movimiento'}</>}
             </button>
             {editandoId && (
-              <button type="button" className="button-secondary form-cancel-edit" onClick={limpiarFormulario} disabled={guardando}>
+              <button type="button" className="button-secondary form-cancel-edit" onClick={() => { limpiarFormulario(); setModalVisible(false); }} disabled={guardando}>
                 Cancelar edición
               </button>
             )}

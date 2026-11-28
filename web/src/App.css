@@ -1076,3 +1076,44 @@ button { color: inherit; }
 :root[data-theme="dark"] .weekly-cashflow-track,
 :root[data-theme="dark"] .progress-track { background: #1e293b; }
 :root[data-theme="dark"] .auth-container { background: radial-gradient(circle at 20% 20%, #064e3b, transparent 32%), var(--canvas); }
+
+.transaction-form-card:not(.is-modal) { display: none; }
+.movement-modal-backdrop {
+  background: rgba(15, 23, 42, .42);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  padding: 0;
+  position: fixed;
+  z-index: 100;
+}
+.transaction-form-card.is-modal {
+  bottom: auto;
+  display: block;
+  left: 50%;
+  max-height: calc(100vh - 40px);
+  max-width: 620px;
+  overflow-y: auto;
+  position: fixed;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100vw - 40px);
+  z-index: 101;
+}
+.movement-modal-close {
+  align-items: center;
+  background: var(--green-50);
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 22px;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+:root[data-theme="dark"] .movement-modal-close { background: #1e293b; }
+@media (max-width: 760px) {
+  .transaction-form-card.is-modal { max-height: calc(100vh - 24px); width: calc(100vw - 24px); }
+}

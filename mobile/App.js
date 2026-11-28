@@ -248,13 +248,11 @@ function AppContent() {
           tabBarHideOnKeyboard: true,
           tabBarIcon: ({ color, size }) => {
             const icons = {
-              Resumen: '⌂',
-              Movimientos: '⇅',
-              Análisis: '▥',
-              Categorías: '◇',
-              Cuentas: '▣',
-              Presupuestos: '◷',
-              Préstamos: '↗'
+              Inicio: '⌂',
+              Presupuestos: '◔',
+              Reportes: '▥',
+              Préstamos: '↗',
+              Ajustes: '⚙'
             };
             return (
               <View style={{
@@ -300,27 +298,23 @@ function AppContent() {
           }
         })}
         >
-          <Tab.Screen name="Resumen" options={{ tabBarLabel: 'Resumen' }}>
+          <Tab.Screen name="Inicio" options={{ tabBarLabel: 'Inicio' }}>
             {(props) => <DashboardScreen {...props} token={token} usuario={usuario} currencyCode={currencyCode} />}
-          </Tab.Screen>
-
-          <Tab.Screen name="Análisis" options={{ tabBarLabel: 'Análisis' }}>
-            {(props) => <AnalysisScreen {...props} token={token} currencyCode={currencyCode} />}
-          </Tab.Screen>
-          <Tab.Screen name="Movimientos">
-            {(props) => <RegistroScreen {...props} token={token} currencyCode={currencyCode} />}
-          </Tab.Screen>
-          <Tab.Screen name="Categorías">
-            {(props) => <CategoriasScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
           <Tab.Screen name="Presupuestos">
             {(props) => <PresupuestosScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
+          <Tab.Screen name="Reportes" options={{ tabBarLabel: 'Reportes' }}>
+            {(props) => <AnalysisScreen {...props} token={token} currencyCode={currencyCode} />}
+          </Tab.Screen>
           <Tab.Screen name="Préstamos">
             {(props) => <PrestamosScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
-          <Tab.Screen name="Cuentas">
-            {(props) => <CuentasScreen {...props} token={token} currencyCode={currencyCode} />}
+          <Tab.Screen name="Ajustes" options={{ tabBarLabel: 'Ajustes' }}>
+            {(props) => <PerfilScreen {...props} usuario={usuario} currencyCode={currencyCode} onCurrencyChange={guardarMoneda} onLogout={handleLogout} />}
+          </Tab.Screen>
+          <Tab.Screen name="Movimientos" options={{ tabBarButton: () => null }}>
+            {(props) => <RegistroScreen {...props} token={token} currencyCode={currencyCode} />}
           </Tab.Screen>
         </Tab.Navigator>
         <TouchableOpacity

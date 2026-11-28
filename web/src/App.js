@@ -12,13 +12,11 @@ import { availableCurrencies } from './currency';
 import './App.css';
 
 const navigation = [
-  { id: 'dashboard', icon: '◫', label: 'Resumen' },
-  { id: 'analisis', icon: '⌁', label: 'Análisis' },
-  { id: 'movimientos', icon: '↕', label: 'Movimientos' },
-  { id: 'categorias', icon: '◇', label: 'Categorías' },
-  { id: 'presupuestos', icon: '◉', label: 'Presupuestos' },
+  { id: 'dashboard', icon: '⌂', label: 'Inicio' },
+  { id: 'presupuestos', icon: '◔', label: 'Presupuestos' },
+  { id: 'analisis', icon: '▥', label: 'Reportes' },
   { id: 'prestamos', icon: '↗', label: 'Préstamos' },
-  { id: 'cuentas', icon: '▣', label: 'Cuentas' }
+  { id: 'cuentas', icon: '⚙', label: 'Ajustes' }
 ];
 
 function App() {
@@ -46,6 +44,7 @@ function App() {
   const menuUsuarioRef = useRef(null);
   const [seccion, setSeccion] = useState('dashboard');
   const [actualizacion, setActualizacion] = useState(0);
+  const [abrirMovimiento, setAbrirMovimiento] = useState(0);
 
   useEffect(() => {
     if (!token) {
@@ -156,6 +155,15 @@ function App() {
     }
   };
 
+  const navegar = (destino) => {
+    if (destino === 'movimientos') {
+      setSeccion('movimientos');
+      setAbrirMovimiento((actual) => actual + 1);
+    } else {
+      setSeccion(destino);
+    }
+  };
+
   if (!token) {
     return (
       <div className="theme-root">
@@ -195,7 +203,6 @@ function App() {
             >
               <span className="navigation-icon" aria-hidden="true">{item.icon}</span>
               {item.label}
-              {item.id === 'movimientos' && <span className="navigation-arrow">›</span>}
             </button>
           ))}
         </nav>
@@ -294,13 +301,13 @@ function App() {
 
         <div className="app-page">
           {seccion === 'dashboard' && (
-            <Dashboard refreshKey={actualizacion} onNavigate={setSeccion} userName={usuario?.name} currencyCode={cuentaUsuario?.currency || 'USD'} />
+            <Dashboard refreshKey={actualizacion} onNavigate={navegar} userName={usuario?.name} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'analisis' && (
-            <Analisis refreshKey={actualizacion} onNavigate={setSeccion} currencyCode={cuentaUsuario?.currency || 'USD'} />
+            <Analisis refreshKey={actualizacion} onNavigate={navegar} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'movimientos' && (
-            <Registro onGuardado={actualizarResumen} onNavigate={setSeccion} currencyCode={cuentaUsuario?.currency || 'USD'} />
+            <Registro onGuardado={actualizarResumen} onNavigate={navegar} abrirMovimiento={abrirMovimiento} currencyCode={cuentaUsuario?.currency || 'USD'} />
           )}
           {seccion === 'categorias' && (
             <Categorias />

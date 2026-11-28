@@ -496,8 +496,10 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
       )}
 
       {showForm && (
-      <View style={styles.formCard}>
-      <View style={styles.formHeading}>
+      <Modal visible transparent animationType="fade" onRequestClose={() => { limpiarFormulario(); setShowForm(false); }}>
+        <KeyboardAvoidingView style={styles.formModalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.formCard}>
+      <View>
         <Text style={styles.formTitle}>{editandoId ? 'Editar movimiento' : 'Nuevo movimiento'}</Text>
         <TouchableOpacity onPress={() => { limpiarFormulario(); setShowForm(false); }}><Text style={styles.linkCuenta}>Cerrar</Text></TouchableOpacity>
       </View>
@@ -533,12 +535,12 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
 
       <View style={styles.etiquetaCuenta}>
         <Text style={styles.label}>Cuenta</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Cuentas')}>
+        <TouchableOpacity onPress={() => { setShowForm(false); navigation.navigate('Ajustes'); }}>
           <Text style={styles.linkCuenta}>Añadir</Text>
         </TouchableOpacity>
       </View>
       {cuentas.length === 0 ? (
-        <TouchableOpacity style={styles.vacioBox} onPress={() => navigation.navigate('Cuentas')}>
+        <TouchableOpacity style={styles.vacioBox} onPress={() => { setShowForm(false); navigation.navigate('Ajustes'); }}>
           <Text style={styles.vacioTxt}>Añade una cuenta para registrar de dónde viene o a dónde va el dinero.</Text>
         </TouchableOpacity>
       ) : (
@@ -625,7 +627,9 @@ export default function RegistroScreen({ token, navigation, route, currencyCode 
           <Text style={styles.btnCancelarTexto}>Cancelar edición</Text>
         </TouchableOpacity>
       )}
-      </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       )}
 
       <View style={styles.historial}>
@@ -734,7 +738,9 @@ const styles = StyleSheet.create({
   exportButton: { marginLeft: 'auto', paddingVertical: 8, paddingHorizontal: 10 },
   exportText: { color: colors.blue700, fontSize: 12, fontWeight: '800' },
   accountFilters: { flexGrow: 0, marginBottom: 12 },
-  formCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 18, padding: 15, marginBottom: 16 },
+  formModalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(15,23,42,0.42)', padding: 12 },
+  formCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 18, maxHeight: '92%', padding: 15, paddingBottom: 24, width: '100%', alignSelf: 'center' },
+  formCardContent: { padding: 15, paddingBottom: 24 },
   formHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   formTitle: { color: colors.ink, fontSize: 17, fontWeight: '800' },
   tipoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, backgroundColor: '#edf1f7', borderRadius: 11, padding: 4 },
