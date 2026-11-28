@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   obtenerCategorias,
   obtenerCuentasFinancieras,
+  obtenerDashboard,
   guardarMovimiento,
   obtenerMovimientos,
   actualizarMovimiento,
@@ -34,6 +35,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [movimientos, setMovimientos] = useState([]);
+  const [resumenMes, setResumenMes] = useState(null);
   const [transferencias, setTransferencias] = useState([]);
   const [cargandoMovimientos, setCargandoMovimientos] = useState(true);
   const [editandoId, setEditandoId] = useState(null);
@@ -44,18 +46,47 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+  const [hayMasMovimientos, setHayMasMovimientos] = useState(false);
+  const [cargandoMasMovimientos, setCargandoMasMovimientos] = useState(false);
 
-  const cargarMovimientos = async (activo = () => true) => {
+  const cargarResumenMes = useCallback(async (activo = () => true) => {
+    const hoy = fechaActualLocal();
+    try {
+      const res = await obtenerDashboard({
+        fechaInicio: `${hoy.slice(0, 7)}-01`,
+        fechaFin: hoy,
+        incluirTodos: true
+      });
+      if (!res.exito) throw new Error(res.error || 'No se pudo cargar el balance mensual.');
+      if (activo()) setResumenMes(res.resumen || null);
+    } catch (err) {
+      if (activo()) setError(err.response?.data?.error || err.message || 'No se pudo cargar el balance mensual.');
+    }
+  }, []);
+
+  const cargarMovimientos = useCallback(async (activo = () => true, pagina = 1) => {
     setCargandoMovimientos(true);
     try {
-      const res = await obtenerMovimientos();
-      if (activo()) setMovimientos(res.movimientos || []);
+      const res = await obtenerMovimientos({
+        page: pagina,
+        limit: 50,
+        type: filtroTipo,
+        search: busqueda,
+        dateFrom: fechaInicio,
+        dateTo: fechaFin
+      });
+      if (activo()) {
+        setMovimientos(pagina === 1 ? (res.movimientos || []) : (actuales) => [...actuales, ...(res.movimientos || [])]);
+        setPaginaMovimientos(pagina);
+        setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
+      }
     } catch (err) {
       if (activo()) setError(err.response?.data?.error || 'No se pudieron cargar los movimientos.');
     } finally {
       if (activo()) setCargandoMovimientos(false);
     }
-  };
+  }, [filtroTipo, busqueda, fechaInicio, fechaFin]);
 
   useEffect(() => {
     let activo = true;
@@ -95,9 +126,16 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     cargarCategorias();
     cargarCuentas();
     cargarTransferencias();
-    cargarMovimientos(() => activo);
+    cargarResumenMes(() => activo);
     return () => { activo = false; };
-  }, []);
+  }, [cargarResumenMes]);
+
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => {
+      cargarMovimientos(() => true, 1);
+    }, busqueda ? 300 : 0);
+    return () => window.clearTimeout(temporizador);
+  }, [busqueda, filtroTipo, fechaInicio, fechaFin, cargarMovimientos]);
 
   const catsFiltradas = categorias.filter((categoria) => categoria.type === tipo);
 
@@ -107,6 +145,28 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       setCategoriaSel(categoriasTipo[0]?.name || '');
     }
   }, [tipo, categorias, categoriaSel]);
+
+  const cargarMasMovimientos = async () => {
+    if (!hayMasMovimientos || cargandoMasMovimientos) return;
+    setCargandoMasMovimientos(true);
+    try {
+      const res = await obtenerMovimientos({
+        page: paginaMovimientos + 1,
+        limit: 50,
+        type: filtroTipo,
+        search: busqueda,
+        dateFrom: fechaInicio,
+        dateTo: fechaFin
+      });
+      setMovimientos((actuales) => [...actuales, ...(res.movimientos || [])]);
+      setPaginaMovimientos((actual) => actual + 1);
+      setHayMasMovimientos(Boolean(res.paginacion?.hasNext));
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudieron cargar más movimientos.');
+    } finally {
+      setCargandoMasMovimientos(false);
+    }
+  };
 
   const handleGuardar = async (event) => {
     event.preventDefault();
@@ -142,6 +202,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       setMensaje(editandoId ? 'Movimiento actualizado. Tu resumen ya está actualizado.' : 'Movimiento registrado. Tu resumen ya está actualizado.');
       limpiarFormulario();
       await cargarMovimientos();
+      await cargarResumenMes();
       onGuardado?.();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo guardar el movimiento. Inténtalo de nuevo.');
@@ -182,6 +243,7 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
     try {
       await eliminarMovimiento(movimiento.id);
       setMovimientos((actuales) => actuales.filter((item) => item.id !== movimiento.id));
+      await cargarResumenMes();
       if (editandoId === movimiento.id) limpiarFormulario();
       setMensaje('Movimiento eliminado.');
       onGuardado?.();
@@ -219,12 +281,10 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
       (!fechaFin || fecha <= fechaFin) &&
       (!consulta || texto.includes(consulta));
   });
-  const ingresosFiltrados = movimientosFiltrados
-    .filter((movimiento) => movimiento.type === 'INGRESO')
-    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
-  const gastosFiltrados = movimientosFiltrados
-    .filter((movimiento) => movimiento.type === 'GASTO')
-    .reduce((total, movimiento) => total + (Number(movimiento.amount) || 0), 0);
+  const ingresosMes = Number(resumenMes?.totalIngresos) || 0;
+  const gastosMes = Number(resumenMes?.totalGastos) || 0;
+  const balanceMes = Number(resumenMes?.balanceTotal) || ingresosMes - gastosMes;
+  const nombreMes = new Date().toLocaleDateString('es', { month: 'long' });
 
   const exportarCSV = () => {
     const valorCSV = (value) => {
@@ -280,19 +340,19 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
         <div className="movement-intro-icon">↕</div>
       </section>
 
-      <section className="transaction-summary" aria-label="Totales de movimientos filtrados">
+      <section className="transaction-summary" aria-label={`Totales de ${nombreMes}`}>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">INGRESOS</span>
-          <strong className="amount-positive">{currency(ingresosFiltrados)}</strong>
+          <span className="panel-kicker">INGRESOS DEL MES</span>
+          <strong className="amount-positive">{resumenMes ? currency(ingresosMes) : '—'}</strong>
         </article>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">GASTOS</span>
-          <strong className="amount-negative">{currency(gastosFiltrados)}</strong>
+          <span className="panel-kicker">GASTOS DEL MES</span>
+          <strong className="amount-negative">{resumenMes ? currency(gastosMes) : '—'}</strong>
         </article>
         <article className="panel-card transaction-total-card">
-          <span className="panel-kicker">BALANCE NETO</span>
-          <strong className={ingresosFiltrados - gastosFiltrados >= 0 ? 'amount-positive' : 'amount-negative'}>
-            {currency(ingresosFiltrados - gastosFiltrados)}
+          <span className="panel-kicker">BALANCE DE {nombreMes}</span>
+          <strong className={balanceMes >= 0 ? 'amount-positive' : 'amount-negative'}>
+            {resumenMes ? currency(balanceMes) : '—'}
           </strong>
         </article>
       </section>
@@ -529,6 +589,17 @@ export default function Registro({ onGuardado, onNavigate, currencyCode = 'USD' 
                 </div>
               </article>
             ))}
+            {hayMasMovimientos && (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={cargarMasMovimientos}
+                disabled={cargandoMasMovimientos}
+                style={{ width: '100%', marginTop: 12 }}
+              >
+                {cargandoMasMovimientos ? 'Cargando...' : 'Cargar más movimientos'}
+              </button>
+            )}
           </div>
         )}
       </section>

@@ -184,13 +184,51 @@ router.get('/', autenticarToken, async (req, res) => {
       return res.status(404).json({ error: 'No se encontró una cuenta activa para este usuario.' });
     }
 
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+    const tipo = typeof req.query.type === 'string' ? req.query.type.toUpperCase() : '';
+    const consulta = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const fechaInicio = typeof req.query.dateFrom === 'string' ? req.query.dateFrom : '';
+    const fechaFin = typeof req.query.dateTo === 'string' ? req.query.dateTo : '';
+    const cuentaId = typeof req.query.financialAccountId === 'string' ? req.query.financialAccountId : '';
+    const date = {};
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fechaInicio)) date.gte = new Date(`${fechaInicio}T00:00:00.000Z`);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fechaFin)) date.lte = new Date(`${fechaFin}T23:59:59.999Z`);
+
+    const where = {
+      accountId: relacionCuenta.accountId,
+      ...(tipo === 'INGRESO' || tipo === 'GASTO' ? { type: tipo } : {}),
+      ...(Object.keys(date).length > 0 && { date }),
+      ...(cuentaId && { financialAccountId: cuentaId }),
+      ...(consulta && {
+        OR: [
+          { description: { contains: consulta, mode: 'insensitive' } },
+          { category: { name: { contains: consulta, mode: 'insensitive' } } },
+          { financialAccount: { name: { contains: consulta, mode: 'insensitive' } } }
+        ]
+      })
+    };
+
+    const total = await prisma.transaction.count({ where });
     const movimientos = await prisma.transaction.findMany({
-      where: { accountId: relacionCuenta.accountId },
+      where,
       include: { category: true, financialAccount: true },
-      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      skip: (page - 1) * limit,
+      take: limit
     });
 
-    res.json({ exito: true, movimientos });
+    res.json({
+      exito: true,
+      movimientos,
+      paginacion: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total
+      }
+    });
   } catch (error) {
     console.error('Error al consultar movimientos:', error);
     res.status(500).json({ error: 'Error interno al consultar los movimientos.' });

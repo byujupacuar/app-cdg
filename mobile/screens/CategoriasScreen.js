@@ -14,7 +14,6 @@ import {
 import { 
   obtenerCategorias, 
   obtenerDashboardReal,
-  obtenerPresupuestos,
   crearCategoria, 
   actualizarCategoria, 
   eliminarCategoria 
@@ -25,7 +24,6 @@ import { formatCurrency } from '../currency';
 export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
   const moneda = (valor) => formatCurrency(valor, currencyCode);
   const [categorias, setCategorias] = useState([]);
-  const [presupuestos, setPresupuestos] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(true);
@@ -42,19 +40,15 @@ export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
 
   // Cargar categorías desde la API
   const cargarCategorias = useCallback(async () => {
-    const [res, resumen, limites] = await Promise.all([
+    const [res, resumen] = await Promise.all([
       obtenerCategorias(token),
-      obtenerDashboardReal(token),
-      obtenerPresupuestos(token)
+      obtenerDashboardReal(token)
     ]);
     if (res.exito) setCategorias(res.categorias || []);
     else {
       Alert.alert("Error", res.mensaje || "No se pudieron obtener las categorías.");
     }
     if (resumen.exito) setDashboard(resumen.datos);
-    if (limites.exito) {
-      setPresupuestos(limites.presupuestos || []);
-    }
     setLoading(false);
     setRefreshing(false);
   }, [token]);
@@ -138,8 +132,6 @@ export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
     `${categoria.name} ${categoria.type}`.toLocaleLowerCase().includes(busqueda.trim().toLocaleLowerCase())
   );
   const gastosMes = dashboard?.gastosPorCategoria || [];
-  const totalPresupuestado = presupuestos.reduce((total, item) => total + Number(item.limitAmount || 0), 0);
-  const totalGastadoPresupuestos = presupuestos.reduce((total, item) => total + Number(item.spentAmount || 0), 0);
 
   if (loading && !refreshing) {
     return (
@@ -167,16 +159,6 @@ export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
           <Text style={styles.subtitulo}>Tus gastos agrupados por categoría</Text>
         </View>
 
-        <View style={styles.budgetSummary}>
-          <Text style={styles.summaryLabel}>Presupuestos utilizados este mes</Text>
-          <View style={styles.summaryAmounts}>
-            <Text style={styles.summarySpent}>{moneda(totalGastadoPresupuestos)}</Text>
-            <Text style={styles.summaryLimit}>de {moneda(totalPresupuestado)}</Text>
-          </View>
-          <View style={styles.summaryTrack}>
-            <View style={[styles.summaryFill, { width: `${totalPresupuestado > 0 ? Math.min(100, totalGastadoPresupuestos / totalPresupuestado * 100) : 0}%` }]} />
-          </View>
-        </View>
         <TextInput
           style={styles.searchInput}
           value={busqueda}
@@ -191,10 +173,8 @@ export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
           </View>
         ) : (
           categoriasVisibles.map((cat) => {
-            const presupuesto = presupuestos.find((item) => item.categoryId === cat.id || item.categoria === cat.name);
             const gastoReal = gastosMes.find((item) => item.id === cat.id || item.nombre === cat.name);
-            const gastado = Number(presupuesto?.spentAmount ?? gastoReal?.monto ?? 0);
-            const limite = Number(presupuesto?.limitAmount || 0);
+            const gastado = Number(gastoReal?.monto || 0);
             return (
             <View key={cat.id} style={styles.catCard}>
               <View style={styles.catIconBox}>
@@ -215,10 +195,7 @@ export default function CategoriasScreen({ token, currencyCode = 'USD' }) {
                   </Text>
                   {cat.type === 'GASTO' && (
                     <View style={styles.categoryUsage}>
-                      <Text style={styles.categoryUsageText}>
-                        {moneda(gastado)}{limite > 0 ? ` de ${moneda(limite)}` : ' gastados'}
-                      </Text>
-                      {limite > 0 && <View style={styles.categoryTrack}><View style={[styles.categoryFill, { width: `${Math.min(100, gastado / limite * 100)}%` }]} /></View>}
+                      <Text style={styles.categoryUsageText}>{moneda(gastado)} gastados este mes</Text>
                     </View>
                   )}
                 </View>
@@ -327,13 +304,6 @@ const styles = StyleSheet.create({
   header: { marginBottom: 18 },
   titulo: { fontSize: 26, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
   subtitulo: { fontSize: 13, color: colors.muted, marginTop: 4 },
-  budgetSummary: { backgroundColor: colors.blue700, padding: 16, borderRadius: 17, marginBottom: 13 },
-  summaryLabel: { color: '#dbeafe', fontSize: 12, fontWeight: '600' },
-  summaryAmounts: { flexDirection: 'row', alignItems: 'baseline', gap: 5, marginTop: 7 },
-  summarySpent: { color: colors.white, fontSize: 26, fontWeight: '800' },
-  summaryLimit: { color: '#dbeafe', fontSize: 12 },
-  summaryTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 4, overflow: 'hidden', marginTop: 12 },
-  summaryFill: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 4 },
   searchInput: { height: 43, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 11, fontSize: 13, marginBottom: 12, color: colors.ink },
   catCard: { 
     backgroundColor: colors.white, 
@@ -359,8 +329,6 @@ const styles = StyleSheet.create({
   catName: { fontSize: 16, fontWeight: '800', color: colors.ink, marginBottom: 4 },
   categoryUsage: { marginTop: 6 },
   categoryUsageText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  categoryTrack: { height: 4, backgroundColor: colors.blue50, borderRadius: 3, overflow: 'hidden', marginTop: 5 },
-  categoryFill: { height: '100%', backgroundColor: colors.emerald700, borderRadius: 3 },
   badgeTipo: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
   badgeGasto: { backgroundColor: colors.redSoft },
   badgeIngreso: { backgroundColor: colors.green100 },
