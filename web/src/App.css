@@ -16,6 +16,25 @@
   --shadow: 0 10px 28px rgba(33, 61, 112, 0.055);
 }
 
+:root[data-theme="dark"] {
+  --green-950: #f1f5f9;
+  --green-800: #34d399;
+  --green-700: #059669;
+  --green-100: #064e3b;
+  --green-50: #13242a;
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --line: #283548;
+  --canvas: #0b1120;
+  --white: #131c2e;
+  --red: #fb7185;
+  --red-soft: #4c0519;
+  --emerald: #34d399;
+  --emerald-soft: #064e3b;
+  --shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -889,3 +908,110 @@ button { color: inherit; }
   .transaction-filters { grid-template-columns: 1fr; }
   .transaction-search { grid-column: auto; }
 }
+
+.theme-root { min-height: 100vh; position: relative; }
+.theme-toggle {
+  align-items: center;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 42px;
+  font-size: 18px;
+  height: 42px;
+  justify-content: center;
+  margin-right: 8px;
+  padding: 0;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  width: 42px;
+}
+.theme-toggle:hover { background: var(--green-100); border-color: var(--green-800); color: var(--green-800); }
+.theme-toggle-auth { position: fixed; right: 22px; top: 22px; z-index: 20; }
+.user-menu { align-items: center; display: flex; }
+
+:root[data-theme="dark"] body { background: var(--canvas); color: var(--ink); }
+:root[data-theme="dark"] .app-sidebar,
+:root[data-theme="dark"] .app-topbar,
+:root[data-theme="dark"] .app-brand,
+:root[data-theme="dark"] .user-menu-trigger,
+:root[data-theme="dark"] .user-menu-panel,
+:root[data-theme="dark"] .stitch-card.auth-card,
+:root[data-theme="dark"] .theme-toggle { background: var(--white); }
+:root[data-theme="dark"] .app-main { background: var(--canvas); }
+:root[data-theme="dark"] .app-topbar { background: rgba(19, 28, 46, .92); }
+:root[data-theme="dark"] .app-sidebar,
+:root[data-theme="dark"] .app-topbar,
+:root[data-theme="dark"] .panel-card,
+:root[data-theme="dark"] .summary-card,
+:root[data-theme="dark"] .account-overview-totals > div,
+:root[data-theme="dark"] .user-menu-trigger,
+:root[data-theme="dark"] .user-menu-panel,
+:root[data-theme="dark"] .stitch-card.auth-card,
+:root[data-theme="dark"] .dialog-card,
+:root[data-theme="dark"] .category-form-panel,
+:root[data-theme="dark"] .budget-form-panel,
+:root[data-theme="dark"] .loan-form-panel,
+:root[data-theme="dark"] .transaction-tip { border-color: var(--line); }
+:root[data-theme="dark"] .panel-card,
+:root[data-theme="dark"] .summary-card,
+:root[data-theme="dark"] .account-overview-totals > div,
+:root[data-theme="dark"] .dialog-card,
+:root[data-theme="dark"] .category-form-panel,
+:root[data-theme="dark"] .budget-form-panel,
+:root[data-theme="dark"] .loan-form-panel,
+:root[data-theme="dark"] .transaction-tip,
+:root[data-theme="dark"] .user-menu-panel,
+:root[data-theme="dark"] .stitch-card.auth-card { background: var(--white); color: var(--ink); }
+:root[data-theme="dark"] .app-topbar h1,
+:root[data-theme="dark"] .welcome-row h2,
+:root[data-theme="dark"] .categories-intro h2,
+:root[data-theme="dark"] .panel-heading h2,
+:root[data-theme="dark"] .category-form-panel h2,
+:root[data-theme="dark"] .dialog-card h2,
+:root[data-theme="dark"] .user-menu-account > strong,
+:root[data-theme="dark"] .user-menu-identity strong,
+:root[data-theme="dark"] .brand-header h2,
+:root[data-theme="dark"] .sidebar-note strong { color: var(--ink); }
+:root[data-theme="dark"] .navigation-item { color: var(--muted); }
+:root[data-theme="dark"] .navigation-item:hover { background: #1e293b; color: var(--green-800); }
+:root[data-theme="dark"] .navigation-item.is-active { background: var(--green-100); color: var(--green-800); }
+:root[data-theme="dark"] .sidebar-note,
+:root[data-theme="dark"] .panel-heading-icon,
+:root[data-theme="dark"] .panel-empty > span,
+:root[data-theme="dark"] .progress-track,
+:root[data-theme="dark"] .recent-icon,
+:root[data-theme="dark"] .income-icon,
+:root[data-theme="dark"] .category-swatch,
+:root[data-theme="dark"] .dialog-close,
+:root[data-theme="dark"] .account-adjust-form { background: var(--green-50); }
+:root[data-theme="dark"] .button-secondary,
+:root[data-theme="dark"] .user-menu-invite input,
+:root[data-theme="dark"] .user-menu-currency select,
+:root[data-theme="dark"] .input-group input,
+:root[data-theme="dark"] .transaction-filters input,
+:root[data-theme="dark"] .transaction-filters select,
+:root[data-theme="dark"] .period-form input,
+:root[data-theme="dark"] .analysis-account-filter select,
+:root[data-theme="dark"] .form-field input,
+:root[data-theme="dark"] .form-field select,
+:root[data-theme="dark"] .form-field textarea { background: #0f172a; border-color: var(--line); color: var(--ink); }
+:root[data-theme="dark"] .summary-balance { background: linear-gradient(135deg, #064e3b, #059669); border: 0; }
+:root[data-theme="dark"] .amount-positive { color: #34d399; }
+:root[data-theme="dark"] .amount-negative,
+:root[data-theme="dark"] .expense-icon,
+:root[data-theme="dark"] .recent-expense,
+:root[data-theme="dark"] .history-expense { color: #fb7185; }
+:root[data-theme="dark"] .recent-expense,
+:root[data-theme="dark"] .history-expense,
+:root[data-theme="dark"] .expense-icon,
+:root[data-theme="dark"] .alert-error,
+:root[data-theme="dark"] .user-menu-message.is-error { background: var(--red-soft); }
+:root[data-theme="dark"] .category-dot,
+:root[data-theme="dark"] .progress-track span,
+:root[data-theme="dark"] .weekly-cashflow-track span,
+:root[data-theme="dark"] .income-fill { background: #34d399; }
+:root[data-theme="dark"] .weekly-cashflow-track,
+:root[data-theme="dark"] .progress-track { background: #1e293b; }
+:root[data-theme="dark"] .auth-container { background: radial-gradient(circle at 20% 20%, #064e3b, transparent 32%), var(--canvas); }

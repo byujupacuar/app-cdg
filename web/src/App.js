@@ -23,6 +23,11 @@ const navigation = [
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('nivia_token'));
+  const [temaOscuro, setTemaOscuro] = useState(() => {
+    const guardado = localStorage.getItem('nivia_theme');
+    if (guardado) return guardado === 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  });
   const [usuario, setUsuario] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('nivia_user') || 'null');
@@ -90,6 +95,13 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = temaOscuro ? 'dark' : 'light';
+    localStorage.setItem('nivia_theme', temaOscuro ? 'dark' : 'light');
+  }, [temaOscuro]);
+
+  const alternarTema = () => setTemaOscuro((actual) => !actual);
+
   const handleLogin = (newToken, newUser) => {
     setToken(newToken);
     setUsuario(newUser);
@@ -145,7 +157,20 @@ function App() {
   };
 
   if (!token) {
-    return <Auth onLoginSuccess={handleLogin} />;
+    return (
+      <div className="theme-root">
+        <button
+          className="theme-toggle theme-toggle-auth"
+          type="button"
+          onClick={alternarTema}
+          aria-label={temaOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          title={temaOscuro ? 'Tema claro' : 'Tema oscuro'}
+        >
+          {temaOscuro ? '☀' : '☾'}
+        </button>
+        <Auth onLoginSuccess={handleLogin} />
+      </div>
+    );
   }
 
   const seccionActual = navigation.find((item) => item.id === seccion);
@@ -190,6 +215,15 @@ function App() {
             <h1>{seccionActual?.label}</h1>
           </div>
           <div className="user-menu" ref={menuUsuarioRef}>
+            <button
+              className="theme-toggle"
+              type="button"
+              onClick={alternarTema}
+              aria-label={temaOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+              title={temaOscuro ? 'Tema claro' : 'Tema oscuro'}
+            >
+              {temaOscuro ? '☀' : '☾'}
+            </button>
             <button
               className="user-menu-trigger"
               type="button"
